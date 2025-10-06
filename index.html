@@ -24,6 +24,14 @@
         /* Flex children must be allowed to shrink; evita que o conteúdo da esquerda force o right para a próxima linha */
         #round-matches li > .left { min-width: 0; flex: 1 1 auto; }
         #round-matches li > .right { min-width: 0; flex: 0 0 auto; text-align: right; white-space: nowrap; }
+    /* barras de probabilidade (mini-bars) */
+    .prob-bars { display: flex; flex-direction: column; gap: 4px; }
+    .prob-bars .row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: #374151; }
+    .prob-bars .bar { width: 110px; height: 8px; background: #f3f4f6; border-radius: 6px; overflow: hidden; }
+    .prob-bars .fill { height: 100%; border-radius: 6px; }
+    /* foco visível para navegação por teclado */
+    button:focus, input:focus, [tabindex]:focus { outline: 3px solid rgba(79,70,229,0.25); outline-offset: 2px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         #table-container table th, #table-container table td { vertical-align: middle; }
         footer { color: #6b7280; font-size: 0.9rem; text-align: center; margin-top: 1.5rem; }
     </style>
@@ -47,8 +55,11 @@
                 <li>Probabilidades de resultado (vitória mandante, empate, vitória visitante) são obtidas a partir do produto das PMFs de Poisson (somando sobre possíveis placares).</li>
                 <li>Para previsões de campeonato usamos simulação de Monte Carlo: repetimos sorteios das partidas restantes e agregamos posições para estimar probabilidades (Top-4, Top-6, rebaixamento, posição média).</li>
             </ul>
-            <div class="mt-3 text-sm text-gray-700">
-                Fórmula da PMF de Poisson: <span class="font-mono">\(P(K=k;\lambda)=\dfrac{e^{-\lambda}\lambda^{k}}{k!}\)</span>
+            <div class="mt-3 text-center">
+                <div class="inline-block bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-3">
+                    <div class="text-sm text-indigo-700 font-semibold">Aplicação da Distribuição de Poisson</div>
+                    <div class="mt-2 text-lg text-gray-800 font-mono">\[P(X=k)=\dfrac{\lambda^{k} e^{-\lambda}}{k!},\quad k=0,1,2,\dots\]</div>
+                </div>
             </div>
             <div class="mt-2 text-sm text-gray-600">
                 Pontos fortes do modelo: simples, interpretável, excelente para material didático; limitações: não captura dependências entre gols das duas equipes (bivariância), ou efeitos temporais/lesões. Para usos avançados podem-se empregar modelos bivariados ou regressões (GLM).
@@ -75,7 +86,7 @@
                 </div>
                 <div class="flex items-center justify-center gap-4">
                     <span class="text-sm text-gray-600">Rodada:</span>
-                    <input id="roundRange" type="range" min="1" max="1" value="1" class="w-1/2">
+                    <input id="roundRange" type="range" min="1" max="1" value="1" class="w-1/2" aria-label="Selecionar rodada" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
                     <span id="roundLabel" class="text-sm font-medium">1</span>
                 </div>
             </div>
@@ -92,10 +103,11 @@
                 <div class="flex items-center justify-center gap-3">
                     <label class="text-sm text-gray-700">Simulações Monte Carlo:</label>
                     <input id="mcCount" type="number" min="10" max="20000" value="500" class="w-24 px-2 py-1 border rounded">
-                    <button id="mcRunBtn" class="px-3 py-1 bg-blue-600 text-white rounded">Rodar MC</button>
+                    <button id="mcRunBtn" class="px-3 py-1 bg-blue-600 text-white rounded" title="Rodar Monte Carlo (n = value)" tabindex="0">Rodar MC</button>
+                    <button id="mc500Btn" class="px-3 py-1 bg-blue-500 text-white rounded" title="Rodar Monte Carlo com 500 iterações" tabindex="0">MC 500 (final)</button>
                     <button id="mcStopBtn" class="px-3 py-1 bg-gray-200 rounded hidden">Parar</button>
                 </div>
-                <div class="mt-2 text-center text-sm text-gray-600" id="mcProgress">Pronto</div>
+                <div class="mt-2 text-center text-sm text-gray-600" id="mcProgress" role="status" aria-live="polite">Pronto</div>
                 <div id="mcResults" class="mt-3 hidden"></div>
             </div>
             <div id="legend" class="text-center text-sm text-gray-600 mb-4 hidden">
@@ -331,8 +343,9 @@
                     const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
                     const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdv);
                     const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
-                    const gh = poissonSample(lambdaH);
-                    const ga = poissonSample(lambdaA);
+                    const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
+                    const gh = sc.golsMandante;
+                    const ga = sc.golsVisitante;
                     const res = gh>ga ? 'H' : (gh<ga ? 'A' : 'D');
                     simulated.push({ round: r, mandante: m.mandante, visitante: m.visitante, golsMandante: gh, golsVisitante: ga, resultado: res, played: true, simulated: true });
                 });
@@ -385,22 +398,33 @@
                             // compute probs for this match based on stats up to r-1
                             const statsBefore = calcStatsUpToRound(r-1);
                             const totalGP = Object.values(statsBefore).reduce((s,t)=>s+(t.GP||0),0);
+                            const totalGC = Object.values(statsBefore).reduce((s,t)=>s+(t.GC||0),0);
                             const totalJ = Object.values(statsBefore).reduce((s,t)=>s+(t.J||0),0);
                             const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
-                            const homeMetrics = statsBefore[mt.mandante] ? { avgGF: statsBefore[mt.mandante].GP / Math.max(1, statsBefore[mt.mandante].J), avgGA: statsBefore[mt.mandante].GC / Math.max(1, statsBefore[mt.mandante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGF };
-                            const awayMetrics = statsBefore[mt.visitante] ? { avgGF: statsBefore[mt.visitante].GP / Math.max(1, statsBefore[mt.visitante].J), avgGA: statsBefore[mt.visitante].GC / Math.max(1, statsBefore[mt.visitante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGF };
-                            const lambdaH = Math.max(0.05, homeMetrics.avgGF * (awayMetrics.avgGA / Math.max(0.1, leagueAvgGF)) * homeAdvGlobal);
-                            const lambdaA = Math.max(0.05, awayMetrics.avgGF * (homeMetrics.avgGA / Math.max(0.1, leagueAvgGF)));
+                            const leagueAvgGA = totalJ>0 ? totalGC/totalJ : 1.2;
+                            const homeMetrics = statsBefore[mt.mandante] ? { avgGF: statsBefore[mt.mandante].GP / Math.max(1, statsBefore[mt.mandante].J), avgGA: statsBefore[mt.mandante].GC / Math.max(1, statsBefore[mt.mandante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                            const awayMetrics = statsBefore[mt.visitante] ? { avgGF: statsBefore[mt.visitante].GP / Math.max(1, statsBefore[mt.visitante].J), avgGA: statsBefore[mt.visitante].GC / Math.max(1, statsBefore[mt.visitante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                            let lambdaH = homeMetrics.avgGF * (awayMetrics.avgGA / Math.max(0.1, leagueAvgGA)) * homeAdvGlobal;
+                            let lambdaA = awayMetrics.avgGF * (homeMetrics.avgGA / Math.max(0.1, leagueAvgGA));
+                            // estabilidade: cap nas lambdas para evitar placares extremos
+                            lambdaH = Math.max(0.05, Math.min(lambdaH, 6));
+                            lambdaA = Math.max(0.05, Math.min(lambdaA, 6));
                             const probs = matchOutcomeProbs(lambdaH, lambdaA);
 
+                            // list top scorelines (h x a) with probability — mostrar top-4 em lista vertical com tooltips
+                            const topScores = getTopScorelines(lambdaH, lambdaA, 4);
+                            const topHtml = `<ul class="text-xs text-gray-600 mt-1 space-y-1" role="list" aria-label="Principais placares prováveis">` + topScores.map(s => {
+                                const pct = (s.p*100).toFixed(1);
+                                return `<li role="listitem" class="flex items-center justify-between"><span class="font-medium">${s.h} x ${s.a}</span><span title="Probabilidade ${pct}%" aria-label="Probabilidade ${pct} por cento" class="text-gray-500">${pct}%</span></li>`;
+                            }).join('') + `</ul>`;
                             if (mt.source === 'real') {
-                                right.innerHTML = `<span class="text-sm text-gray-700">${mt.golsMandante} x ${mt.golsVisitante}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                                right.innerHTML = `<span class="text-sm text-gray-700">${mt.golsMandante} x ${mt.golsVisitante}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
                             } else if (mt.source === 'simulated') {
-                                right.innerHTML = `<span class="text-sm text-yellow-600">${mt.golsMandante} x ${mt.golsVisitante} <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-yellow-200 text-yellow-800 rounded">Simulação</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                                right.innerHTML = `<span class="text-sm text-yellow-600">${mt.golsMandante} x ${mt.golsVisitante} <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-yellow-200 text-yellow-800 rounded">Simulação</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
                             } else if (mt.source === 'pending') {
-                                right.innerHTML = `<span class="text-sm text-gray-400">-- x -- <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">Pendente</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                                right.innerHTML = `<span class="text-sm text-gray-400">-- x -- <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">Pendente</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
                             } else {
-                                right.innerHTML = `<span class="text-sm">${mt.golsMandante ?? '--'} x ${mt.golsVisitante ?? '--'}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                                right.innerHTML = `<span class="text-sm">${mt.golsMandante ?? '--'} x ${mt.golsVisitante ?? '--'}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
                             }
                         li.appendChild(left); li.appendChild(right); ul.appendChild(li);
                     });
@@ -463,20 +487,28 @@
                     } else if (pos >= 17 && pos <= 20) {
                         tr.classList.add('bg-red-50');
                     }
-                    // se tivermos resultados MC recentes, exibe probabilidades resumidas
+                    // se tivermos resultados MC recentes, exibe probabilidades resumidas como mini-barras
                     let probHtml = '';
-                    if (mcLatest && mcLatest[time.time]) {
-                        const p = mcLatest[time.time];
-                        probHtml = `<div class="text-xs text-gray-600 mt-1">Campeão ${(p.probChamp*100).toFixed(1)}% • G4 ${(p.probTop4*100).toFixed(1)}% • G6 ${(p.probTop6*100).toFixed(1)}% • Sul ${(p.probSul*100).toFixed(1)}% • Rbk ${(p.probReleg*100).toFixed(1)}%</div>`;
+                    if (mcLatest) {
+                        // tentativa direta
+                        let p = mcLatest[time.time];
+                        // fallback fuzzy: procura melhor correspondência entre nomes
+                        if (!p) {
+                            const keys = Object.keys(mcLatest || {});
+                            const best = findBestMatch(time.time, keys || []);
+                            if (best) p = mcLatest[best];
+                        }
+                        if (p) probHtml = buildProbHtml(p);
                     }
-                    const data = [index + 1, time.time + (probHtml? (' ' + probHtml) : ''), time.P, time.J, time.V, time.E, time.D, time.GP, time.GC, time.SG, `${time['%']}%`];
-                    data.forEach((d, i) => {
-                        const td = document.createElement('td');
-                        td.className = `px-4 py-3 whitespace-nowrap ${i === 1 ? 'font-medium text-gray-900 text-left' : 'text-gray-500 text-center'}`;
-                        td.textContent = d;
-                        tr.appendChild(td);
-                    });
-                    if (tr.cells[0]) tr.cells[0].classList.add('font-semibold');
+                    // célula posição
+                    const tdPos = document.createElement('td'); tdPos.className = 'px-4 py-3 whitespace-nowrap text-center text-gray-500'; tdPos.textContent = index + 1; tdPos.classList.add('font-semibold'); tr.appendChild(tdPos);
+                    // célula time + barras
+                    const tdTeam = document.createElement('td'); tdTeam.className = 'px-4 py-3 whitespace-nowrap font-medium text-gray-900 text-left';
+                    tdTeam.innerHTML = `<div>${time.time}${probHtml? ('<div class="mt-1">'+probHtml+'</div>') : ''}</div>`;
+                    tr.appendChild(tdTeam);
+                    // demais células numéricas
+                    const nums = [time.P, time.J, time.V, time.E, time.D, time.GP, time.GC, time.SG, `${time['%']}%`];
+                    nums.forEach(n => { const td = document.createElement('td'); td.className = 'px-4 py-3 whitespace-nowrap text-gray-500 text-center'; td.textContent = n; tr.appendChild(td); });
                     tbody.appendChild(tr);
                 });
                 table.appendChild(tbody);
@@ -502,6 +534,24 @@
                 let f = 1;
                 for (let i = 2; i <= n; i++) f *= i;
                 return f;
+            }
+
+            // constrói HTML com mini-barras para probabilidades (campeão, libertadores, sul, rebaixamento)
+            function buildProbHtml(p) {
+                // p: { probChamp, probTop4, probTop6, probSul, probReleg }
+                const champ = Math.round((p.probChamp||0)*1000)/10;
+                const lib = Math.round((p.probTop4||0)*1000)/10;
+                const sul = Math.round((p.probSul||0)*1000)/10;
+                const reb = Math.round((p.probReleg||0)*1000)/10;
+                const html = `
+                    <div class="prob-bars">
+                        <div class="row" role="img" aria-label="Campeão: ${champ} por cento"><span style="width:72px; color:#2563EB; font-weight:600;">Campeão</span><div class="bar" aria-hidden="true"><div class="fill" style="width:${champ}%;background:#2563EB"></div></div><span style="width:34px;text-align:right">${champ}%</span></div>
+                        <div class="row" role="img" aria-label="Libertadores: ${lib} por cento"><span style="width:72px; color:#16A34A; font-weight:600;">Libert.</span><div class="bar" aria-hidden="true"><div class="fill" style="width:${lib}%;background:#16A34A"></div></div><span style="width:34px;text-align:right">${lib}%</span></div>
+                        <div class="row" role="img" aria-label="Sul-Americana: ${sul} por cento"><span style="width:72px; color:#A97142; font-weight:600;">Sul</span><div class="bar" aria-hidden="true"><div class="fill" style="width:${sul}%;background:#A97142"></div></div><span style="width:34px;text-align:right">${sul}%</span></div>
+                        <div class="row" role="img" aria-label="Rebaixamento: ${reb} por cento"><span style="width:72px; color:#DC2626; font-weight:600;">Rbk</span><div class="bar" aria-hidden="true"><div class="fill" style="width:${reb}%;background:#DC2626"></div></div><span style="width:34px;text-align:right">${reb}%</span></div>
+                    </div>
+                `;
+                return html;
             }
 
             // calcula probabilidades de resultado (home, draw, away) aproximando somatórios até Kmax
@@ -536,6 +586,44 @@
                 return { home: probHome, draw: probDraw, away: probAway };
             }
 
+            // retorna as top N combinações de placar (h x a) com maiores probabilidades
+            function getTopScorelines(lambdaH, lambdaA, N=6) {
+                const maxMean = Math.max(lambdaH, lambdaA);
+                const K = Math.max(10, Math.ceil(maxMean + 6 * Math.sqrt(Math.max(1, maxMean))));
+                const pH = new Array(K+1).fill(0);
+                const pA = new Array(K+1).fill(0);
+                for (let k=0;k<=K;k++) { pH[k] = poissonPMF(k, lambdaH); pA[k] = poissonPMF(k, lambdaA); }
+                // normalize tail
+                const remH = 1 - pH.reduce((s,x)=>s+x,0); if (remH>0) pH[K] += remH;
+                const remA = 1 - pA.reduce((s,x)=>s+x,0); if (remA>0) pA[K] += remA;
+                const list = [];
+                for (let i=0;i<=K;i++) for (let j=0;j<=K;j++) list.push({h:i,a:j,p: pH[i]*pA[j]});
+                list.sort((a,b)=>b.p-a.p);
+                return list.slice(0,N);
+            }
+
+            // amostra um placar (h,a) a partir da distribuição conjunta Poisson (produto das PMFs)
+            function sampleScorelineFromJoint(lambdaH, lambdaA) {
+                const maxMean = Math.max(lambdaH, lambdaA);
+                const K = Math.max(10, Math.ceil(maxMean + 6 * Math.sqrt(Math.max(1, maxMean))));
+                const pH = new Array(K+1).fill(0);
+                const pA = new Array(K+1).fill(0);
+                for (let k=0;k<=K;k++) { pH[k] = poissonPMF(k, lambdaH); pA[k] = poissonPMF(k, lambdaA); }
+                const remH = 1 - pH.reduce((s,x)=>s+x,0); if (remH>0) pH[K] += remH;
+                const remA = 1 - pA.reduce((s,x)=>s+x,0); if (remA>0) pA[K] += remA;
+                // build flattened cumulative
+                const flat = [];
+                for (let i=0;i<=K;i++) for (let j=0;j<=K;j++) flat.push({h:i,a:j,p: pH[i]*pA[j]});
+                // normalize and cumulative
+                const total = flat.reduce((s,x)=>s+x.p,0);
+                if (total <= 0) return {h:0,a:0};
+                let c = 0;
+                for (let i=0;i<flat.length;i++) { flat[i].p = flat[i].p/total; c += flat[i].p; flat[i].c = c; }
+                const u = Math.random();
+                const pick = flat.find(x=> x.c >= u) || flat[flat.length-1];
+                return { golsMandante: pick.h, golsVisitante: pick.a };
+            }
+
             // load CSVs and initialize
             async function init() {
                 try {
@@ -565,6 +653,8 @@
                     roundRange.value = String(currentRound);
                     roundLabel.textContent = String(currentRound);
                     controls.classList.remove('hidden');
+                    // mostrar também os controles de Monte Carlo por padrão
+                    const mcControlsEl = document.getElementById('mc-controls'); if (mcControlsEl) mcControlsEl.classList.remove('hidden');
 
                     // attempt to normalize/match remainingTemplate names to canonical names from playedMatches
                     const canonicalNames = Array.from(new Set(playedMatches.map(m => m.mandante).concat(playedMatches.map(m => m.visitante)).filter(Boolean)));
@@ -576,15 +666,18 @@
                         if (bestA) { if (bestA !== m.visitante) { m.visitante = bestA; mapped++; } }
                     });
 
+                    // estimar vantagem de jogar em casa a partir dos jogos carregados
+                    try { homeAdvGlobal = estimateHomeAdv(playedMatches); } catch(e) {}
                     // debug/status (counts)
                     let status = document.getElementById('debug-status');
                     if (!status) {
                         status = document.createElement('div');
                         status.id = 'debug-status';
                         status.className = 'text-sm text-gray-600 mt-2 text-center';
+                        status.setAttribute('role','status'); status.setAttribute('aria-live','polite');
                         controls.parentNode.insertBefore(status, loadingElement.nextSibling);
                     }
-                    status.textContent = `Jogos carregados: reais=${playedMatches.length}, restantes=${remainingTemplate.length}, mapeados=${mapped}, rodada atual=${currentRound}, maxRound=${maxRound}`;
+                    status.textContent = `Jogos carregados: reais=${playedMatches.length}, restantes=${remainingTemplate.length}, mapeados=${mapped}, rodada atual=${currentRound}, maxRound=${maxRound} • homeAdv=${homeAdvGlobal}`;
 
                     loadingElement.classList.add('hidden');
                     tableContainer.classList.remove('hidden');
@@ -599,7 +692,7 @@
             // control handlers
             prevBtn.addEventListener('click', ()=>{ if (currentRound>1) { currentRound--; renderForRound(currentRound); } });
             nextBtn.addEventListener('click', ()=>{ if (currentRound<maxRound) { currentRound++; renderForRound(currentRound); } });
-            roundRange.addEventListener('input', (e)=>{ currentRound = parseInt(e.target.value,10); renderForRound(currentRound); });
+            roundRange.addEventListener('input', (e)=>{ currentRound = parseInt(e.target.value,10); roundRange.setAttribute('aria-valuenow', String(currentRound)); renderForRound(currentRound); });
             resimBtn.addEventListener('click', ()=>{ Object.keys(simulatedByRound).forEach(k=>delete simulatedByRound[k]); renderForRound(currentRound); });
             playBtn.addEventListener('click', ()=>{
                 if (playInterval) { clearInterval(playInterval); playInterval = null; playBtn.textContent = 'Play'; playBtn.classList.remove('bg-red-500'); playBtn.classList.add('bg-green-500'); }
@@ -664,8 +757,9 @@
                         const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
                             const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdvGlobal);
                         const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
-                        const gh = poissonSample(lambdaH);
-                        const ga = poissonSample(lambdaA);
+                        const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
+                        const gh = sc.golsMandante;
+                        const ga = sc.golsVisitante;
                         const res = gh>ga ? 'H' : (gh<ga ? 'A' : 'D');
                         // push simulated match into played
                         seedState.played.push({ round: m.round, mandante: m.mandante, visitante: m.visitante, golsMandante: gh, golsVisitante: ga, resultado: res, played:true });
@@ -725,6 +819,11 @@
                 // store latest probs for rendering in table
                 mcLatest = {};
                 results.forEach(r => { mcLatest[r.team] = r; });
+                // update debug/status to show how many teams have MC results
+                try {
+                    const status = document.getElementById('debug-status');
+                    if (status) status.textContent = status.textContent + ` • MC times=${Object.keys(mcLatest).length}`;
+                } catch(e) {}
                 // render
                 mcResults.innerHTML = '';
                 const table = document.createElement('table'); table.className='mx-auto mt-2 min-w-full text-sm';
@@ -746,6 +845,8 @@
                 const n = parseInt(mcCountInput.value,10) || 500;
                 runMonteCarlo(n);
             });
+            const mc500Btn = document.getElementById('mc500Btn');
+            if (mc500Btn) mc500Btn.addEventListener('click', ()=>{ runMonteCarlo(500); });
             mcStopBtn.addEventListener('click', ()=>{ mcRunning = false; });
 
             init();
