@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulação do Resultado Final do Campeonato Brasileiro 2025</title>
+    <!-- Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- KaTeX para renderizar fórmulas matemáticas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha256-+V2Rzq2Xo8XKp2x0o6k/9u3k2r0Zg7oV1tqgq5e9nSE=" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha256-CtK1K2dH3Qf2QpFQnXl5mE7kqNQGf1m5Kqg3Yw3kPfs=" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" integrity="sha256-9zq+q2su1k5Gq0bYh1Yd3kF1lJrZ0xYV6q2k3W2b9Vw=" crossorigin="anonymous"></script>
+    <style>
+        /* Usando uma fonte mais agradável */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Ajustes de alinhamento e tipografia menores para consistência */
+        #controls { display: flex; flex-direction: column; align-items: center; }
+        #controls .flex { align-items: center; justify-content: center; }
+        #round-matches ul { padding: 0; margin: 0; list-style: none; }
+        #round-matches li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        #table-container table th, #table-container table td { vertical-align: middle; }
+        footer { color: #6b7280; font-size: 0.9rem; text-align: center; margin-top: 1.5rem; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Simulação do Resultado Final do Campeonato Brasileiro 2025</h1>
+            <p class="text-sm text-gray-600 mt-2">A Distribuição de Poisson Aplicada à modelagem de resultados de jogos de futebol: Uma proposta didática para o Ensino Médio</p>
+            <p class="text-sm text-gray-500 mt-1">Feito por: <strong>José Marques da Fonseca Junior</strong> &nbsp;•&nbsp; Ano: 2025</p>
+        </header>
+
+        <!-- Seção explicativa do modelo (didática) -->
+        <section id="model-explain" class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <h2 class="text-lg font-semibold text-gray-800">Breve explicação do modelo</h2>
+            <p class="text-sm text-gray-700 mt-2">Este projeto usa a distribuição de Poisson para modelar o número de gols marcados por cada time em uma partida. Principais pressupostos e passos:</p>
+            <ul class="list-disc list-inside text-sm text-gray-700 mt-2 space-y-1">
+                <li>Assume-se que gols marcados por cada equipe em um jogo seguem uma Poisson(\(\lambda\)) independente.</li>
+                <li>O parâmetro \(\lambda\) para cada equipe é estimado a partir de médias empíricas: média de gols marcados (ataque) e média de gols sofridos (defesa) por jogo, ajustadas pela média da liga e um fator de vantagem de jogar em casa.</li>
+                <li>Probabilidades de resultado (vitória mandante, empate, vitória visitante) são obtidas a partir do produto das PMFs de Poisson (somando sobre possíveis placares).</li>
+                <li>Para previsões de campeonato usamos simulação de Monte Carlo: repetimos sorteios das partidas restantes e agregamos posições para estimar probabilidades (Top-4, Top-6, rebaixamento, posição média).</li>
+            </ul>
+            <div class="mt-3 text-sm text-gray-700">
+                Fórmula da PMF de Poisson: <span class="font-mono">\(P(K=k;\lambda)=\dfrac{e^{-\lambda}\lambda^{k}}{k!}\)</span>
+            </div>
+            <div class="mt-2 text-sm text-gray-600">
+                Pontos fortes do modelo: simples, interpretável, excelente para material didático; limitações: não captura dependências entre gols das duas equipes (bivariância), ou efeitos temporais/lesões. Para usos avançados podem-se empregar modelos bivariados ou regressões (GLM).
+            </div>
+            <div class="mt-3 text-sm text-gray-700">
+                <h3 class="font-semibold">Evidências de robustez e métricas</h3>
+                <ul class="list-disc list-inside mt-1 text-sm text-gray-700">
+                    <li>Log-verossimilhança: permite comparar ajustes alternativos (por exemplo modelo Poisson vs. NegBin).</li>
+                    <li>Qui-quadrado de Pearson / Deviance: avalia discrepâncias entre observados e esperados por contagem de gols.</li>
+                    <li>Validação por bootstrap e Monte Carlo: intervalos de confiança empíricos para probabilidades de classificação.</li>
+                    <li>Métricas práticas: acurácia de previsão de resultado (H/D/A) e calibração das probabilidades (calibration plot).</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Container para a tabela -->
+        <main>
+            <div id="controls" class="mb-4 hidden">
+                <div class="flex items-center justify-center gap-3 mb-2">
+                    <button id="prevBtn" class="px-3 py-1 bg-gray-200 rounded">Anterior</button>
+                    <button id="playBtn" class="px-3 py-1 bg-green-500 text-white rounded">Play</button>
+                    <button id="nextBtn" class="px-3 py-1 bg-gray-200 rounded">Próxima</button>
+                    <button id="resimulateBtn" class="px-3 py-1 bg-yellow-400 rounded">Resimular</button>
+                </div>
+                <div class="flex items-center justify-center gap-4">
+                    <span class="text-sm text-gray-600">Rodada:</span>
+                    <input id="roundRange" type="range" min="1" max="1" value="1" class="w-1/2">
+                    <span id="roundLabel" class="text-sm font-medium">1</span>
+                </div>
+            </div>
+
+            
+
+            <div id="loading" class="text-center text-gray-500 py-10">
+                <p>Carregando dados da classificação...</p>
+            </div>
+            <div id="round-matches" class="mb-4 hidden">
+                <!-- Lista de jogos da rodada atual -->
+            </div>
+            <div id="mc-controls" class="mb-4 hidden">
+                <div class="flex items-center justify-center gap-3">
+                    <label class="text-sm text-gray-700">Simulações Monte Carlo:</label>
+                    <input id="mcCount" type="number" min="10" max="20000" value="500" class="w-24 px-2 py-1 border rounded">
+                    <button id="mcRunBtn" class="px-3 py-1 bg-blue-600 text-white rounded">Rodar MC</button>
+                    <button id="mcStopBtn" class="px-3 py-1 bg-gray-200 rounded hidden">Parar</button>
+                </div>
+                <div class="mt-2 text-center text-sm text-gray-600" id="mcProgress">Pronto</div>
+                <div id="mcResults" class="mt-3 hidden"></div>
+            </div>
+            <div id="legend" class="text-center text-sm text-gray-600 mb-4 hidden">
+                <div class="mb-2">
+                    <span class="inline-flex items-center mr-3"><span class="w-3 h-3 bg-yellow-200 rounded mr-2 border border-yellow-400"></span>Simulação (placar gerado)</span>
+                    <span class="inline-flex items-center mr-3"><span class="w-3 h-3 bg-gray-100 rounded mr-2 border border-gray-300"></span>Pendente (sem resultado)</span>
+                    <span class="inline-flex items-center"><span class="w-3 h-3 bg-white rounded mr-2 border border-transparent"></span>Real (resultado confirmado)</span>
+                </div>
+                <div class="mt-1 text-sm text-gray-700">
+                    <strong>Legenda da classificação:</strong>
+                    <span class="inline-flex items-center ml-2 mr-2"><span class="w-3 h-3 bg-blue-100 rounded mr-2 border border-blue-300"></span>Campeão</span>
+                    <span class="inline-flex items-center ml-2 mr-2"><span class="w-3 h-3 bg-green-100 rounded mr-2 border border-green-300"></span>Vaga direta na Libertadores (2º–4º)</span>
+                    <span class="inline-flex items-center ml-2 mr-2"><span class="w-3 h-3 bg-purple-100 rounded mr-2 border border-purple-300"></span>Playoff Libertadores (5º–6º)</span>
+                    <span class="inline-flex items-center ml-2 mr-2"><span class="w-3 h-3" style="background:#F5E9DB;border-radius:6px;margin-right:0.5rem;border:1px solid #E5CDBF;width:0.75rem;height:0.75rem;display:inline-block"></span>Sulamericana (7º–12º)</span>
+                    <span class="inline-flex items-center ml-2 mr-2"><span class="w-3 h-3 bg-red-100 rounded mr-2 border border-red-300"></span>Rebaixamento (17º–20º)</span>
+                </div>
+                <div class="mt-1 text-xs text-gray-500">azul = campeão • verde = vaga direta na libertadores • lilás = playoff libertadores • vermelho = rebaixamento</div>
+            </div>
+            <div id="table-container" class="overflow-x-auto bg-white rounded-lg shadow-md hidden">
+                <!-- A tabela será inserida aqui via JavaScript -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loadingElement = document.getElementById('loading');
+            const tableContainer = document.getElementById('table-container');
+            const roundMatchesContainer = document.getElementById('round-matches');
+            const controls = document.getElementById('controls');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const playBtn = document.getElementById('playBtn');
+            const resimBtn = document.getElementById('resimulateBtn');
+            const roundRange = document.getElementById('roundRange');
+            const roundLabel = document.getElementById('roundLabel');
+
+            let playedMatches = []; // partidas com resultado real
+            let remainingTemplate = []; // partidas futuras sem resultado
+            let maxRound = 1;
+            let currentRound = 1;
+            let playInterval = null;
+            // vantagem de jogar em casa (padrão, será estimada a partir dos dados)
+            let homeAdvGlobal = 1.08;
+            // últimos resultados Monte Carlo (mapa: time -> probs)
+            let mcLatest = null;
+            const simulateFromRound = 27; // ajuste: simular a partir desta rodada (inclusive)
+
+            // cache de resultados simulados por rodada (chave: rodada -> lista de matches simulated)
+            const simulatedByRound = {};
+
+            // util: parse header-aware CSV
+            function parseCSVWithHeader(csvText) {
+                if (!csvText) return [];
+                // split and keep original order; remove only pure-comment lines
+                const rawLines = csvText.split(/\r?\n/).map(l => l.replace(/\uFEFF/g, '').replace(/\t/g, ' ').replace(/\s+$/,'')).filter(l => l !== undefined && l !== null);
+                // find header line: prefer a line that contains RODADA or Home or HG or Res
+                let headerIdx = null;
+                for (let i = 0; i < rawLines.length; i++) {
+                    const line = rawLines[i].trim();
+                    if (!line || line.startsWith('#')) continue;
+                    const cols = line.split(';').map(c => c.trim().toLowerCase());
+                    if (cols.some(c => c === 'rodada') || cols.some(c => c === 'home') || cols.some(c => c === 'hg') || cols.some(c => c === 'res')) { headerIdx = i; break; }
+                }
+                if (headerIdx === null) {
+                    // fallback: first non-comment non-empty line
+                    headerIdx = rawLines.findIndex(l => l && !l.startsWith('#'));
+                    if (headerIdx === -1) return [];
+                }
+                const lines = rawLines.slice(headerIdx).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+                if (lines.length === 0) return [];
+                const header = lines[0].split(';').map(h => h.trim());
+                const idx = name => {
+                    const n = header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+                    return n >= 0 ? n : null;
+                };
+                const idxRound = idx('RODADA') ?? idx('Round') ?? 0;
+                const idxHome = idx('Home') ?? idx('Time') ?? idx('Home Team') ?? header.findIndex(h => /home/i.test(h));
+                const idxAway = idx('Away') ?? header.findIndex(h => /away/i.test(h));
+                const idxHG = idx('HG') ?? idx('HG') ?? header.findIndex(h => /hg|gols.*mandante|gp/i.test(h));
+                const idxAG = idx('AG') ?? header.findIndex(h => /ag|gols.*visitante|gc/i.test(h));
+                const idxRes = idx('Res') ?? idx('Res') ?? header.findIndex(h => /res|resultado/i.test(h));
+
+                const out = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(';');
+                    // sanity: ensure this line has enough columns
+                    if (cols.length < 3) continue;
+                    const roundRaw = (cols[idxRound] || cols[0] || '').trim();
+                    const round = roundRaw === '' ? null : (parseInt(roundRaw, 10) || null);
+                    const home = (cols[idxHome] || cols[1] || '').trim();
+                    const away = (cols[idxAway] || cols[2] || '').trim();
+                    if (!home || !away) continue; // ignore malformed lines that produced empty teams
+                    const hg = (cols[idxHG] !== undefined ? (cols[idxHG].trim() === '' ? null : parseInt(cols[idxHG], 10)) : null);
+                    const ag = (cols[idxAG] !== undefined ? (cols[idxAG].trim() === '' ? null : parseInt(cols[idxAG], 10)) : null);
+                    const res = (idxRes != null && cols[idxRes]) ? cols[idxRes].trim() : '';
+                    out.push({ round, mandante: home, visitante: away, golsMandante: hg, golsVisitante: ag, resultado: res, played: ['H','A','D'].includes(res) });
+                }
+                return out;
+            }
+
+            // Normalização de nomes: remove acentos, lower-case, collapsa espaços
+            function normalizeName(s) {
+                if (!s) return '';
+                return s.toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+            }
+
+            // Map display names for common ambiguities (reduce 'RJ' suffixes)
+            function displayTeam(raw) {
+                if (!raw) return raw;
+                // Trim and normalize spacing
+                let s = raw.trim();
+                // Replace common ' RJ' or ' SP' suffixes when safe
+                // Keep the full name if multiple teams share the same short name
+                const short = s.replace(/\s+(RJ|SP|MG|RS|SC|PR|BA|PE|CE|PB|RN|AM|PA|GO|DF|MS|MT)$/, '').trim();
+                // Specific overrides
+                if (/^Flamengo(\s|$)/i.test(s)) return 'Flamengo';
+                if (/^Botafogo(\s|$)/i.test(s)) return 'Botafogo';
+                // If removing the suffix doesn't collide with another canonical name, use it
+                const counts = Object.values(canonicalNames || {}).reduce((acc, v) => {
+                    acc[v] = (acc[v] || 0) + 1; return acc;
+                }, {});
+                if (counts[short] === 1 || !counts[short]) return short;
+                return s;
+            }
+
+            
+
+            // Levenshtein distance
+            function levenshtein(a, b) {
+                if (a === b) return 0;
+                const al = a.length, bl = b.length;
+                if (al === 0) return bl;
+                if (bl === 0) return al;
+                const v0 = new Array(bl + 1); const v1 = new Array(bl + 1);
+                for (let j=0;j<=bl;j++) v0[j] = j;
+                for (let i=0;i<al;i++) {
+                    v1[0] = i+1;
+                    for (let j=0;j<bl;j++) {
+                        const cost = a[i] === b[j] ? 0 : 1;
+                        v1[j+1] = Math.min(v1[j] + 1, v0[j+1] + 1, v0[j] + cost);
+                    }
+                    for (let j=0;j<=bl;j++) v0[j] = v1[j];
+                }
+                return v1[bl];
+            }
+
+            // encontra melhor correspondência entre nome e candidates (retorna candidate ou null)
+            function findBestMatch(name, candidates) {
+                const n = normalizeName(name);
+                if (!n) return null;
+                // exact match
+                for (const c of candidates) if (normalizeName(c) === n) return c;
+                // fuzzy: compute best by normalized levenshtein ratio
+                let best = null; let bestScore = Infinity;
+                for (const c of candidates) {
+                    const nc = normalizeName(c);
+                    const d = levenshtein(n, nc);
+                    const ratio = d / Math.max(1, Math.max(n.length, nc.length));
+                    if (ratio < bestScore) { bestScore = ratio; best = c; }
+                }
+                // accept if reasonably close (<= 0.3)
+                return bestScore <= 0.33 ? best : null;
+            }
+
+            function buildRounds() {
+                const rounds = new Set();
+                playedMatches.forEach(m => { if (m.round) rounds.add(m.round); });
+                remainingTemplate.forEach(m => { if (m.round) rounds.add(m.round); });
+                if (rounds.size === 0) return [1];
+                const arr = Array.from(rounds).sort((a,b)=>a-b);
+                return arr;
+            }
+
+            function calcStatsUpToRound(targetRound) {
+                const all = [];
+                // include played matches with round <= targetRound
+                playedMatches.forEach(m => { if (m.round && m.round <= targetRound && m.played) all.push(m); });
+                // include simulated or template matches for rounds <= targetRound
+                for (let r=1; r<=targetRound; r++) {
+                    // use simulated if available
+                    if (simulatedByRound[r]) {
+                        simulatedByRound[r].forEach(m=> all.push(m));
+                    } else {
+                        // if no simulated but template has matches for this round and they are not played, ignore (they will be simulated when stepping into this round)
+                        // nothing to add
+                    }
+                }
+                // compute stats
+                const stats = {};
+                all.forEach(m => {
+                    if (!m.mandante || !m.visitante) return;
+                    if (m.golsMandante == null || m.golsVisitante == null) return;
+                    const mand = m.mandante, vis = m.visitante;
+                    if (!stats[mand]) stats[mand] = { time: mand, P:0, J:0, V:0, E:0, D:0, GP:0, GC:0 };
+                    if (!stats[vis]) stats[vis] = { time: vis, P:0, J:0, V:0, E:0, D:0, GP:0, GC:0 };
+                    stats[mand].J += 1; stats[vis].J += 1;
+                    stats[mand].GP += m.golsMandante; stats[mand].GC += m.golsVisitante;
+                    stats[vis].GP += m.golsVisitante; stats[vis].GC += m.golsMandante;
+                    if (m.golsMandante > m.golsVisitante) { stats[mand].P += 3; stats[mand].V += 1; stats[vis].D += 1; }
+                    else if (m.golsMandante < m.golsVisitante) { stats[vis].P += 3; stats[vis].V += 1; stats[mand].D += 1; }
+                    else { stats[mand].P += 1; stats[vis].P += 1; stats[mand].E += 1; stats[vis].E += 1; }
+                });
+                return stats;
+            }
+
+            // Estima vantagem de jogar em casa a partir dos jogos já disputados.
+            // Retorna razão média (gols em casa / gols fora), com limites para estabilidade.
+            function estimateHomeAdv(matches) {
+                let sumHome = 0, sumAway = 0, count = 0;
+                matches.forEach(m => {
+                    if (!m || !m.played) return;
+                    if (m.golsMandante == null || m.golsVisitante == null) return;
+                    sumHome += Number(m.golsMandante) || 0;
+                    sumAway += Number(m.golsVisitante) || 0;
+                    count += 1;
+                });
+                if (count === 0 || sumAway === 0) return homeAdvGlobal;
+                const meanHome = sumHome / count;
+                const meanAway = sumAway / count;
+                let ratio = meanHome / Math.max(0.0001, meanAway);
+                // clamp para evitar valores extremos quando poucos jogos
+                ratio = Math.max(0.7, Math.min(1.3, ratio));
+                return Math.round(ratio * 1000) / 1000;
+            }
+
+            // Simula uma rodada completa usando estatísticas até a rodada anterior
+            function simulateRound(r) {
+                // check template matches for this round
+                const template = remainingTemplate.filter(m => m.round === r);
+                if (!template.length) return [];
+                const statsBefore = calcStatsUpToRound(r-1);
+                // compute league averages
+                let totalGP=0,totalGC=0,totalJ=0;
+                Object.values(statsBefore).forEach(t=>{ totalGP+=t.GP; totalGC+=t.GC; totalJ+=t.J; });
+                const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
+                const leagueAvgGA = totalJ>0 ? totalGC/totalJ : 1.2;
+
+                const teamMetrics = {};
+                Object.values(statsBefore).forEach(t => {
+                    teamMetrics[t.time] = { avgGF: t.J>0 ? t.GP/t.J : leagueAvgGF, avgGA: t.J>0 ? t.GC/t.J : leagueAvgGA };
+                });
+
+                const homeAdv = homeAdvGlobal;
+                const simulated = [];
+                template.forEach(m => {
+                    if (!m.mandante || !m.visitante) return;
+                    // if somehow there are goals present treat as played
+                    if (m.golsMandante != null && m.golsVisitante != null) {
+                        simulated.push(Object.assign({}, m, { played:true }));
+                        return;
+                    }
+                    const home = teamMetrics[m.mandante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                    const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                    const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdv);
+                    const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
+                    const gh = poissonSample(lambdaH);
+                    const ga = poissonSample(lambdaA);
+                    const res = gh>ga ? 'H' : (gh<ga ? 'A' : 'D');
+                    simulated.push({ round: r, mandante: m.mandante, visitante: m.visitante, golsMandante: gh, golsVisitante: ga, resultado: res, played: true, simulated: true });
+                });
+                simulatedByRound[r] = simulated;
+                return simulated;
+            }
+
+            // renderiza a tabela com base nas estatísticas até a rodada atual
+            function renderForRound(r) {
+                // ensure simulations up to r have been generated
+                for (let rr=1; rr<=r; rr++) {
+                    // if this round has template matches and no simulations yet -> simulate
+                    const hasTemplate = remainingTemplate.some(m => m.round === rr);
+                    if (hasTemplate && !simulatedByRound[rr]) simulateRound(rr);
+                }
+                const stats = calcStatsUpToRound(r);
+                const arr = Object.values(stats);
+                arr.forEach(t => { t.SG = t.GP - t.GC; t['%'] = t.J>0 ? Math.round((t.P/(t.J*3))*100) : 0; });
+                arr.sort((a,b)=>{ if (b.P!==a.P) return b.P-a.P; if (b.V!==a.V) return b.V-a.V; if (b.SG!==a.SG) return b.SG-a.SG; if (b.GP!==a.GP) return b.GP-a.GP; return a.time.localeCompare(b.time); });
+                renderizarTabela(arr);
+
+                // render round matches list
+                const matchesThisRound = [];
+                // include played matches for this round
+                playedMatches.filter(m => m.round===r).forEach(m => matchesThisRound.push(Object.assign({}, m, { source: 'real' })));
+                // include simulated/template matches
+                if (simulatedByRound[r]) simulatedByRound[r].forEach(m=> matchesThisRound.push(Object.assign({}, m, { source: m.simulated? 'simulated':'template' })));
+                else {
+                    // if no simulation yet but template exists, show template as pending
+                    remainingTemplate.filter(m=>m.round===r).forEach(m=> matchesThisRound.push(Object.assign({}, m, { source: 'pending' })));
+                }
+
+                roundMatchesContainer.innerHTML = '';
+                if (matchesThisRound.length) {
+                    roundMatchesContainer.classList.remove('hidden');
+                    const ul = document.createElement('ul');
+                    ul.className = 'space-y-2';
+                    matchesThisRound.forEach(mt => {
+                            const li = document.createElement('li');
+                            li.className = 'p-2 bg-white rounded shadow-sm flex justify-between items-center';
+                            // visual highlight
+                            if (mt.source === 'simulated') { li.classList.add('bg-yellow-50'); li.style.borderLeft = '4px solid #F59E0B'; }
+                            else if (mt.source === 'pending') { li.classList.add('bg-gray-50'); li.style.borderLeft = '4px solid #D1D5DB'; }
+                            const left = document.createElement('div');
+                            left.innerHTML = `<span class="font-medium">${displayTeam(mt.mandante)}</span> <span class="text-gray-500">vs</span> <span class="font-medium">${displayTeam(mt.visitante)}</span>`;
+                            const right = document.createElement('div');
+
+                            // compute probs for this match based on stats up to r-1
+                            const statsBefore = calcStatsUpToRound(r-1);
+                            const totalGP = Object.values(statsBefore).reduce((s,t)=>s+(t.GP||0),0);
+                            const totalJ = Object.values(statsBefore).reduce((s,t)=>s+(t.J||0),0);
+                            const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
+                            const homeMetrics = statsBefore[mt.mandante] ? { avgGF: statsBefore[mt.mandante].GP / Math.max(1, statsBefore[mt.mandante].J), avgGA: statsBefore[mt.mandante].GC / Math.max(1, statsBefore[mt.mandante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGF };
+                            const awayMetrics = statsBefore[mt.visitante] ? { avgGF: statsBefore[mt.visitante].GP / Math.max(1, statsBefore[mt.visitante].J), avgGA: statsBefore[mt.visitante].GC / Math.max(1, statsBefore[mt.visitante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGF };
+                            const lambdaH = Math.max(0.05, homeMetrics.avgGF * (awayMetrics.avgGA / Math.max(0.1, leagueAvgGF)) * homeAdvGlobal);
+                            const lambdaA = Math.max(0.05, awayMetrics.avgGF * (homeMetrics.avgGA / Math.max(0.1, leagueAvgGF)));
+                            const probs = matchOutcomeProbs(lambdaH, lambdaA);
+
+                            if (mt.source === 'real') {
+                                right.innerHTML = `<span class="text-sm text-gray-700">${mt.golsMandante} x ${mt.golsVisitante}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                            } else if (mt.source === 'simulated') {
+                                right.innerHTML = `<span class="text-sm text-yellow-600">${mt.golsMandante} x ${mt.golsVisitante} <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-yellow-200 text-yellow-800 rounded">Simulação</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                            } else if (mt.source === 'pending') {
+                                right.innerHTML = `<span class="text-sm text-gray-400">-- x -- <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">Pendente</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                            } else {
+                                right.innerHTML = `<span class="text-sm">${mt.golsMandante ?? '--'} x ${mt.golsVisitante ?? '--'}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
+                            }
+                        li.appendChild(left); li.appendChild(right); ul.appendChild(li);
+                    });
+                    roundMatchesContainer.appendChild(ul);
+                    // show legend
+                    const legend = document.getElementById('legend'); if (legend) legend.classList.remove('hidden');
+                } else {
+                    roundMatchesContainer.classList.add('hidden');
+                }
+
+                // update controls
+                roundLabel.textContent = String(r);
+                roundRange.value = String(r);
+            }
+
+            function renderizarTabela(classificacao) {
+                // limpa container
+                tableContainer.innerHTML = '';
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200 text-sm';
+                const thead = document.createElement('thead');
+                thead.className = 'bg-gray-50';
+                const headerRow = document.createElement('tr');
+                const headers = ['#', 'Time', 'P', 'J', 'V', 'E', 'D', 'GP', 'GC', 'SG', '%'];
+                headers.forEach((text, index) => {
+                    const th = document.createElement('th');
+                    th.scope = 'col';
+                    th.className = `px-4 py-3 text-left font-medium text-gray-500 uppercase tracking-wider ${index === 1 ? 'text-left' : 'text-center'}`;
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                const tbody = document.createElement('tbody');
+                tbody.className = 'bg-white divide-y divide-gray-200';
+
+                // dedupe teams and ignore empty names
+                const seen = new Set();
+                const filtered = (classificacao || []).filter(t => t && t.time && t.time.toString().trim() !== '');
+
+                filtered.forEach(t => seen.add(t.time));
+                const unique = [];
+                filtered.forEach(t => { if (!unique.find(u => u.time === t.time)) unique.push(t); });
+
+                unique.forEach((time, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors duration-200';
+                    // colorização por colocação
+                    const pos = index + 1;
+                    if (pos === 1) {
+                        tr.classList.add('bg-blue-50');
+                    } else if (pos >= 2 && pos <= 4) {
+                        tr.classList.add('bg-green-50');
+                    } else if (pos >= 5 && pos <= 6) {
+                        // lilás / roxo claro
+                        tr.style.backgroundColor = '#F5F3FF'; // purple-50
+                    } else if (pos >= 7 && pos <= 12) {
+                        // Sulamericana (marrom claro)
+                        tr.style.backgroundColor = '#F5E9DB';
+                    } else if (pos >= 17 && pos <= 20) {
+                        tr.classList.add('bg-red-50');
+                    }
+                    // se tivermos resultados MC recentes, exibe probabilidades resumidas
+                    let probHtml = '';
+                    if (mcLatest && mcLatest[time.time]) {
+                        const p = mcLatest[time.time];
+                        probHtml = `<div class="text-xs text-gray-600 mt-1">Campeão ${(p.probChamp*100).toFixed(1)}% • G4 ${(p.probTop4*100).toFixed(1)}% • G6 ${(p.probTop6*100).toFixed(1)}% • Sul ${(p.probSul*100).toFixed(1)}% • Rbk ${(p.probReleg*100).toFixed(1)}%</div>`;
+                    }
+                    const data = [index + 1, displayTeam(time.time) + (probHtml? (' ' + probHtml) : ''), time.P, time.J, time.V, time.E, time.D, time.GP, time.GC, time.SG, `${time['%']}%`];
+                    data.forEach((d, i) => {
+                        const td = document.createElement('td');
+                        td.className = `px-4 py-3 whitespace-nowrap ${i === 1 ? 'font-medium text-gray-900 text-left' : 'text-gray-500 text-center'}`;
+                        td.textContent = d;
+                        tr.appendChild(td);
+                    });
+                    if (tr.cells[0]) tr.cells[0].classList.add('font-semibold');
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                tableContainer.appendChild(table);
+            }
+
+            // small helper: old poisson
+            function poissonSample(lambda) {
+                if (lambda <= 0) return 0;
+                const L = Math.exp(-lambda);
+                let k = 0; let p = 1;
+                do { k++; p *= Math.random(); } while (p > L);
+                return k - 1;
+            }
+
+            // Poisson PMF
+            function poissonPMF(k, lambda) {
+                return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k);
+            }
+
+            function factorial(n) {
+                if (n < 0) return NaN;
+                let f = 1;
+                for (let i = 2; i <= n; i++) f *= i;
+                return f;
+            }
+
+            // calcula probabilidades de resultado (home, draw, away) aproximando somatórios até Kmax
+            function matchOutcomeProbs(lambdaH, lambdaA) {
+                const maxMean = Math.max(lambdaH, lambdaA);
+                const K = Math.max(10, Math.ceil(maxMean + 6 * Math.sqrt(Math.max(1, maxMean))));
+                const pH = new Array(K+1).fill(0);
+                const pA = new Array(K+1).fill(0);
+                for (let k=0;k<=K;k++) { pH[k] = poissonPMF(k, lambdaH); pA[k] = poissonPMF(k, lambdaA); }
+                // normalize tail probability into last bucket
+                const remH = 1 - pH.reduce((s,x)=>s+x,0); if (remH>0) pH[K] += remH;
+                const remA = 1 - pA.reduce((s,x)=>s+x,0); if (remA>0) pA[K] += remA;
+
+                let probHome = 0, probDraw = 0, probAway = 0;
+                // home win probability
+                let cdfA = 0;
+                // precompute cumulative of A
+                const cdfAarr = new Array(K+1).fill(0);
+                cdfAarr[0] = pA[0];
+                for (let j=1;j<=K;j++) cdfAarr[j] = cdfAarr[j-1] + pA[j];
+                for (let i=0;i<=K;i++) {
+                    const ph = pH[i];
+                    const paLess = i-1 >= 0 ? cdfAarr[i-1] : 0;
+                    probHome += ph * paLess;
+                    probDraw += ph * pA[i];
+                }
+                probAway = 1 - probHome - probDraw;
+                if (probAway < 0) probAway = 0;
+                // normalize
+                const total = probHome + probDraw + probAway;
+                if (total > 0) { probHome/=total; probDraw/=total; probAway/=total; }
+                return { home: probHome, draw: probDraw, away: probAway };
+            }
+
+            // load CSVs and initialize
+            async function init() {
+                try {
+                    const resp = await fetch('./banco_jogos.csv');
+                    if (!resp.ok) throw new Error('banco_jogos.csv not found');
+                    const txt = await resp.text();
+                    playedMatches = parseCSVWithHeader(txt).filter(m => m.mandante && m.visitante);
+
+                    // try load remaining (keep only rounds >= simulateFromRound)
+                    try {
+                        const rresp = await fetch('./banco_restante.csv');
+                        if (rresp.ok) {
+                            const rtxt = await rresp.text();
+                            remainingTemplate = parseCSVWithHeader(rtxt).filter(m => m.mandante && m.visitante && (m.round == null || m.round >= simulateFromRound));
+                        }
+                    } catch(e) { remainingTemplate = []; }
+
+                    // determine maxRound robustly: include remainingTemplate rounds
+                    const lastPlayed = Math.max(...playedMatches.map(m=>m.round||0), 1);
+                    const maxRemaining = Math.max(...remainingTemplate.map(m=>m.round||0), 0);
+                    maxRound = Math.max(lastPlayed, maxRemaining, simulateFromRound);
+                    currentRound = Math.min(maxRound, Math.max(lastPlayed, 1));
+
+                    // setup controls
+                    roundRange.min = '1';
+                    roundRange.max = String(maxRound);
+                    roundRange.value = String(currentRound);
+                    roundLabel.textContent = String(currentRound);
+                    controls.classList.remove('hidden');
+
+                    // attempt to normalize/match remainingTemplate names to canonical names from playedMatches
+                    const canonicalNames = Array.from(new Set(playedMatches.map(m => m.mandante).concat(playedMatches.map(m => m.visitante)).filter(Boolean)));
+                    let mapped = 0;
+                    remainingTemplate.forEach(m => {
+                        const bestH = findBestMatch(m.mandante, canonicalNames);
+                        const bestA = findBestMatch(m.visitante, canonicalNames);
+                        if (bestH) { if (bestH !== m.mandante) { m.mandante = bestH; mapped++; } }
+                        if (bestA) { if (bestA !== m.visitante) { m.visitante = bestA; mapped++; } }
+                    });
+
+                    // debug/status (counts)
+                    let status = document.getElementById('debug-status');
+                    if (!status) {
+                        status = document.createElement('div');
+                        status.id = 'debug-status';
+                        status.className = 'text-sm text-gray-600 mt-2 text-center';
+                        controls.parentNode.insertBefore(status, loadingElement.nextSibling);
+                    }
+                    status.textContent = `Jogos carregados: reais=${playedMatches.length}, restantes=${remainingTemplate.length}, mapeados=${mapped}, rodada atual=${currentRound}, maxRound=${maxRound}`;
+
+                    loadingElement.classList.add('hidden');
+                    tableContainer.classList.remove('hidden');
+
+                    renderForRound(currentRound);
+                } catch (err) {
+                    loadingElement.innerHTML = `<p class="text-red-500">Erro ao carregar CSVs: ${err}</p>`;
+                    console.error(err);
+                }
+            }
+
+            // control handlers
+            prevBtn.addEventListener('click', ()=>{ if (currentRound>1) { currentRound--; renderForRound(currentRound); } });
+            nextBtn.addEventListener('click', ()=>{ if (currentRound<maxRound) { currentRound++; renderForRound(currentRound); } });
+            roundRange.addEventListener('input', (e)=>{ currentRound = parseInt(e.target.value,10); renderForRound(currentRound); });
+            resimBtn.addEventListener('click', ()=>{ Object.keys(simulatedByRound).forEach(k=>delete simulatedByRound[k]); renderForRound(currentRound); });
+            playBtn.addEventListener('click', ()=>{
+                if (playInterval) { clearInterval(playInterval); playInterval = null; playBtn.textContent = 'Play'; playBtn.classList.remove('bg-red-500'); playBtn.classList.add('bg-green-500'); }
+                else {
+                    playBtn.textContent = 'Pause'; playBtn.classList.remove('bg-green-500'); playBtn.classList.add('bg-red-500');
+                    playInterval = setInterval(()=>{
+                        if (currentRound < maxRound) { currentRound++; renderForRound(currentRound); }
+                        else { clearInterval(playInterval); playInterval = null; playBtn.textContent='Play'; playBtn.classList.remove('bg-red-500'); playBtn.classList.add('bg-green-500'); }
+                    }, 900);
+                }
+            });
+
+            // Monte Carlo controls
+            const mcCountInput = document.getElementById('mcCount');
+            const mcRunBtn = document.getElementById('mcRunBtn');
+            const mcStopBtn = document.getElementById('mcStopBtn');
+            const mcProgress = document.getElementById('mcProgress');
+            const mcResults = document.getElementById('mcResults');
+
+            let mcRunning = false;
+
+            function cloneState() {
+                // shallow copy of templates and played matches
+                return {
+                    played: JSON.parse(JSON.stringify(playedMatches)),
+                    template: JSON.parse(JSON.stringify(remainingTemplate))
+                };
+            }
+
+            // runs one full-season simulation (simulate all remaining rounds) and returns final classification array
+            function runSingleSeasonSim(seedState) {
+                // clear simulatedByRound temporary for this run
+                const localSim = {};
+                const lastPlayed = Math.max(...seedState.played.map(m=>m.round||0), 0);
+                const maxR = Math.max(...seedState.template.map(m=>m.round||0), lastPlayed);
+                // simulate rounds from lastPlayed+1 .. maxR
+                for (let r = lastPlayed+1; r <= maxR; r++) {
+                    const template = seedState.template.filter(m => m.round === r);
+                    if (!template.length) continue;
+                    // compute stats up to r-1
+                    const statsBefore = {};
+                    seedState.played.forEach(m => { if (m.round && m.round <= r-1 && m.played) {
+                        if (!statsBefore[m.mandante]) statsBefore[m.mandante] = { time:m.mandante, J:0, GP:0, GC:0, P:0, V:0, E:0, D:0 };
+                        if (!statsBefore[m.visitante]) statsBefore[m.visitante] = { time:m.visitante, J:0, GP:0, GC:0, P:0, V:0, E:0, D:0 };
+                        statsBefore[m.mandante].J+=1; statsBefore[m.visitante].J+=1;
+                        statsBefore[m.mandante].GP += m.golsMandante; statsBefore[m.mandante].GC += m.golsVisitante;
+                        statsBefore[m.visitante].GP += m.golsVisitante; statsBefore[m.visitante].GC += m.golsMandante;
+                        if (m.golsMandante > m.golsVisitante) { statsBefore[m.mandante].P+=3; statsBefore[m.mandante].V+=1; statsBefore[m.visitante].D+=1; }
+                        else if (m.golsMandante < m.golsVisitante) { statsBefore[m.visitante].P+=3; statsBefore[m.visitante].V+=1; statsBefore[m.mandante].D+=1; }
+                        else { statsBefore[m.mandante].P+=1; statsBefore[m.visitante].P+=1; statsBefore[m.mandante].E+=1; statsBefore[m.visitante].E+=1; }
+                    }});
+
+                    let totalGP=0,totalGC=0,totalJ=0;
+                    Object.values(statsBefore).forEach(t=>{ totalGP+=t.GP; totalGC+=t.GC; totalJ+=t.J; });
+                    const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
+                    const leagueAvgGA = totalJ>0 ? totalGC/totalJ : 1.2;
+                    const teamMetrics = {};
+                    Object.values(statsBefore).forEach(t => teamMetrics[t.time] = { avgGF: t.J>0 ? t.GP/t.J : leagueAvgGF, avgGA: t.J>0 ? t.GC/t.J : leagueAvgGA });
+
+                    template.forEach(m => {
+                        const home = teamMetrics[m.mandante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                        const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
+                            const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdvGlobal);
+                        const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
+                        const gh = poissonSample(lambdaH);
+                        const ga = poissonSample(lambdaA);
+                        const res = gh>ga ? 'H' : (gh<ga ? 'A' : 'D');
+                        // push simulated match into played
+                        seedState.played.push({ round: m.round, mandante: m.mandante, visitante: m.visitante, golsMandante: gh, golsVisitante: ga, resultado: res, played:true });
+                    });
+                }
+                // after all simulations, compute final stats
+                const stats = {};
+                seedState.played.forEach(m => {
+                    if (!m.mandante || !m.visitante) return;
+                    if (m.golsMandante == null || m.golsVisitante == null) return;
+                    if (!stats[m.mandante]) stats[m.mandante] = { time:m.mandante, P:0, J:0, V:0, E:0, D:0, GP:0, GC:0 };
+                    if (!stats[m.visitante]) stats[m.visitante] = { time:m.visitante, P:0, J:0, V:0, E:0, D:0, GP:0, GC:0 };
+                    stats[m.mandante].J += 1; stats[m.visitante].J += 1;
+                    stats[m.mandante].GP += m.golsMandante; stats[m.mandante].GC += m.golsVisitante;
+                    stats[m.visitante].GP += m.golsVisitante; stats[m.visitante].GC += m.golsMandante;
+                    if (m.golsMandante > m.golsVisitante) { stats[m.mandante].P += 3; stats[m.mandante].V += 1; stats[m.visitante].D += 1; }
+                    else if (m.golsMandante < m.golsVisitante) { stats[m.visitante].P += 3; stats[m.visitante].V += 1; stats[m.mandante].D += 1; }
+                    else { stats[m.mandante].P += 1; stats[m.visitante].P += 1; stats[m.mandante].E += 1; stats[m.visitante].E += 1; }
+                });
+                const arr = Object.values(stats);
+                arr.forEach(t => { t.SG = t.GP - t.GC; t['%'] = t.J>0 ? Math.round((t.P/(t.J*3))*100) : 0; });
+                arr.sort((a,b)=>{ if (b.P!==a.P) return b.P-a.P; if (b.V!==a.V) return b.V-a.V; if (b.SG!==a.SG) return b.SG-a.SG; if (b.GP!==a.GP) return b.GP-a.GP; return a.time.localeCompare(b.time); });
+                return arr;
+            }
+
+            async function runMonteCarlo(n) {
+                mcRunning = true; mcRunBtn.classList.add('opacity-50'); mcStopBtn.classList.remove('hidden');
+                mcProgress.textContent = `Executando 0/${n}`; mcResults.classList.add('hidden');
+                const counts = {};
+                let stopped = false;
+                for (let i=0;i<n;i++) {
+                    if (!mcRunning) { stopped = true; break; }
+                    const state = cloneState();
+                    const final = runSingleSeasonSim(state);
+                    final.forEach((t, idx) => {
+                        if (!counts[t.time]) counts[t.time] = { finish: 0, posSum: 0, top4:0, top6:0, releg:0, champ:0, sul:0 };
+                        counts[t.time].finish += 1; counts[t.time].posSum += (idx+1);
+                        if (idx === 0) counts[t.time].champ += 1;
+                        if (idx < 4) counts[t.time].top4 += 1;
+                        if (idx < 6) counts[t.time].top6 += 1;
+                        // sulamericana 7-12 => indices 6..11
+                        if (idx >= 6 && idx <= 11) counts[t.time].sul += 1;
+                        if (idx > (final.length - 4 - 1)) counts[t.time].releg += 1; // bottom 4
+                    });
+                    mcProgress.textContent = `Executando ${i+1}/${n}`;
+                    // small yield to keep UI responsive
+                    if (i % 50 === 0) await new Promise(r=>setTimeout(r,1));
+                }
+                mcRunning = false; mcRunBtn.classList.remove('opacity-50'); mcStopBtn.classList.add('hidden');
+                // build results
+                const teams = Object.keys(counts);
+                const results = teams.map(tm => {
+                    const c = counts[tm];
+                    const sims = c.finish;
+                    return { team: tm, probChamp: (c.champ/sims), probTop4: (c.top4/sims), probTop6: (c.top6/sims), probSul: (c.sul/sims), probReleg: (c.releg/sims), avgPos: (c.posSum/sims) };
+                }).sort((a,b)=>a.avgPos - b.avgPos);
+                // store latest probs for rendering in table
+                mcLatest = {};
+                results.forEach(r => { mcLatest[r.team] = r; });
+                // render
+                mcResults.innerHTML = '';
+                const table = document.createElement('table'); table.className='mx-auto mt-2 min-w-full text-sm';
+                const thead = document.createElement('thead'); thead.innerHTML = '<tr class="bg-gray-50"><th class="px-3 py-2 text-left">Time</th><th class="px-3 py-2">Média Pos.</th><th class="px-3 py-2">Campeão</th><th class="px-3 py-2">Top-4</th><th class="px-3 py-2">Top-6</th><th class="px-3 py-2">Sulamericana</th><th class="px-3 py-2">Rebaixamento</th></tr>';
+                table.appendChild(thead);
+                const tbody = document.createElement('tbody');
+                results.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td class="px-3 py-2">${r.team}</td><td class="px-3 py-2 text-center">${r.avgPos.toFixed(2)}</td><td class="px-3 py-2 text-center">${(r.probChamp*100).toFixed(1)}%</td><td class="px-3 py-2 text-center">${(r.probTop4*100).toFixed(1)}%</td><td class="px-3 py-2 text-center">${(r.probTop6*100).toFixed(1)}%</td><td class="px-3 py-2 text-center">${(r.probSul*100).toFixed(1)}%</td><td class="px-3 py-2 text-center">${(r.probReleg*100).toFixed(1)}%</td>`;
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                mcResults.appendChild(table);
+                mcResults.classList.remove('hidden');
+                mcProgress.textContent = `Concluído ${stopped? '(parado prematuramente)':''}`;
+            }
+
+            mcRunBtn.addEventListener('click', ()=>{
+                const n = parseInt(mcCountInput.value,10) || 500;
+                runMonteCarlo(n);
+            });
+            mcStopBtn.addEventListener('click', ()=>{ mcRunning = false; });
+
+            init();
+            // render KaTeX formulas (se disponível)
+            try {
+                if (window.renderMathInElement) {
+                    renderMathInElement(document.getElementById('model-explain'), {delimiters: [{left: "\\(", right: "\\)", display: false}, {left: "\\[", right: "\\]", display: true}]});
+                }
+            } catch(e) { /* silently ignore if KaTeX not loaded */ }
+            // adicionar rodapé com crédito
+            try {
+                const footer = document.createElement('footer');
+                footer.innerHTML = 'Projeto: <strong>A Distribuição de Poisson Aplicada à modelagem de resultados de jogos de futebol: Uma proposta didática para o Ensino Médio</strong> — Feito por: <strong>José Marques da Fonseca Junior</strong> — Ano: 2025';
+                document.querySelector('.container').appendChild(footer);
+            } catch(e) {}
+        });
+    </script>
+
+</body>
+</html>

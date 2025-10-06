@@ -1,0 +1,10 @@
+{
+  "name": "tabela-brasileirao",
+  "version": "1.0.0",
+  "description": "Tabela do Brasileirão carregando dados de banco_jogos.csv",
+  "scripts": {
+    "start": "http-server -p 5500"
+  },
+  "author": "",
+  "license": "MIT"
+}

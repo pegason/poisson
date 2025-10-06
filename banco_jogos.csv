@@ -1,0 +1,271 @@
+﻿RODADA;Home;Away;HG;AG;Res
+1;Cruzeiro;Mirassol;2;1;H
+1;Fortaleza;Fluminense;2;0;H
+1;Gremio;Atletico-MG;2;1;H
+1;Juventude;Vitoria;2;0;H
+1;Sao Paulo;Sport Recife;0;0;D
+1;Flamengo RJ;Internacional;1;1;D
+1;Palmeiras;Botafogo RJ;0;0;D
+1;Vasco;Santos;2;1;H
+1;Bahia;Corinthians;1;1;D
+1;Bragantino;Ceara;2;2;D
+2;Ceara;Gremio;2;0;H
+2;Corinthians;Vasco;3;0;H
+2;Botafogo RJ;Juventude;2;0;H
+2;Atletico-MG;Sao Paulo;0;0;D
+2;Fluminense;Bragantino;2;1;H
+2;Internacional;Cruzeiro;3;0;H
+2;Mirassol;Fortaleza;1;1;D
+2;Sport Recife;Palmeiras;1;2;A
+2;Vitoria;Flamengo RJ;1;2;A
+2;Santos;Bahia;2;2;D
+3;Bragantino;Botafogo RJ;1;0;H
+3;Juventude;Ceara;2;1;H
+3;Palmeiras;Corinthians;2;0;H
+3;Vasco;Sport Recife;3;1;H
+3;Bahia;Mirassol;1;1;D
+3;Gremio;Flamengo RJ;0;2;A
+3;Sao Paulo;Cruzeiro;1;1;D
+3;Fluminense;Santos;1;0;H
+3;Fortaleza;Internacional;0;0;D
+3;Atletico-MG;Vitoria;2;2;D
+4;Ceara;Vasco;2;1;H
+4;Botafogo RJ;Sao Paulo;2;2;D
+4;Mirassol;Gremio;4;1;H
+4;Sport Recife;Bragantino;0;1;A
+4;Corinthians;Fluminense;0;2;A
+4;Internacional;Palmeiras;0;1;A
+4;Flamengo RJ;Juventude;6;0;H
+4;Santos;Atletico-MG;2;0;H
+4;Vitoria;Fortaleza;2;1;H
+4;Cruzeiro;Bahia;3;0;H
+5;Corinthians;Sport Recife;2;1;H
+5;Vasco;Flamengo RJ;0;0;D
+5;Gremio;Internacional;1;1;D
+5;Juventude;Mirassol;2;2;D
+5;Atletico-MG;Botafogo RJ;1;0;H
+5;Sao Paulo;Santos;2;1;H
+5;Fluminense;Vitoria;1;1;D
+5;Fortaleza;Palmeiras;1;2;A
+5;Bragantino;Cruzeiro;1;0;H
+5;Bahia;Ceara;1;0;H
+6;Internacional;Juventude;3;1;H
+6;Ceara;Sao Paulo;1;1;D
+6;Mirassol;Atletico-MG;2;2;D
+6;Sport Recife;Fortaleza;0;0;D
+6;Botafogo RJ;Fluminense;2;0;H
+6;Flamengo RJ;Corinthians;4;0;H
+6;Cruzeiro;Vasco;1;0;H
+6;Palmeiras;Bahia;0;1;A
+6;Vitoria;Gremio;1;1;D
+6;Santos;Bragantino;1;2;A
+7;Sao Paulo;Fortaleza;0;0;D
+7;Ceara;Vitoria;1;0;H
+7;Corinthians;Internacional;4;2;H
+7;Fluminense;Sport Recife;2;1;H
+7;Bahia;Botafogo RJ;1;0;H
+7;Gremio;Santos;1;0;H
+7;Vasco;Palmeiras;0;1;A
+7;Cruzeiro;Flamengo RJ;2;1;H
+7;Bragantino;Mirassol;1;0;H
+7;Juventude;Atletico-MG;0;1;A
+8;Fortaleza;Juventude;5;0;H
+8;Gremio;Bragantino;1;1;D
+8;Mirassol;Corinthians;2;1;H
+8;Vitoria;Vasco;2;1;H
+8;Flamengo RJ;Bahia;1;0;H
+8;Sport Recife;Cruzeiro;0;4;A
+8;Atletico-MG;Fluminense;3;2;H
+8;Palmeiras;Sao Paulo;1;0;H
+8;Botafogo RJ;Internacional;4;0;H
+8;Santos;Ceara;0;0;D
+9;Ceara;Sport Recife;2;0;H
+9;Vasco;Fortaleza;3;0;H
+9;Sao Paulo;Gremio;2;1;H
+9;Bahia;Vitoria;2;1;H
+9;Corinthians;Santos;1;0;H
+9;Juventude;Fluminense;1;1;D
+9;Bragantino;Palmeiras;1;2;A
+9;Flamengo RJ;Botafogo RJ;0;0;D
+9;Cruzeiro;Atletico-MG;0;0;D
+9;Internacional;Mirassol;1;1;D
+10;Fluminense;Vasco;2;1;H
+10;Sao Paulo;Mirassol;0;2;A
+10;Atletico-MG;Corinthians;0;0;D
+10;Gremio;Bahia;1;0;H
+10;Palmeiras;Flamengo RJ;0;2;A
+10;Sport Recife;Internacional;1;1;D
+10;Vitoria;Santos;0;1;A
+10;Fortaleza;Cruzeiro;0;2;A
+10;Bragantino;Juventude;1;0;H
+10;Botafogo RJ;Ceara;3;2;H
+11;Bahia;Sao Paulo;2;1;H
+11;Vasco;Bragantino;0;2;A
+11;Mirassol;Sport Recife;1;0;H
+11;Juventude;Gremio;0;2;A
+11;Santos;Botafogo RJ;0;1;A
+11;Ceara;Atletico-MG;0;1;A
+11;Corinthians;Vitoria;0;0;D
+11;Flamengo RJ;Fortaleza;5;0;H
+11;Cruzeiro;Palmeiras;2;1;H
+11;Internacional;Fluminense;0;2;A
+12;Bragantino;Bahia;0;3;A
+12;Vitoria;Cruzeiro;0;0;D
+12;Fortaleza;Santos;2;3;A
+12;Gremio;Corinthians;1;1;D
+12;Atletico-MG;Internacional;2;0;H
+12;Sao Paulo;Vasco;1;3;A
+12;Botafogo RJ;Mirassol;3;3;D
+12;Palmeiras;Juventude;0;0;D
+12;Fluminense;Ceara;0;0;D
+12;Sport Recife;Flamengo RJ;0;0;D
+13;Flamengo RJ;Sao Paulo;2;0;H
+13;Internacional;Vitoria;1;0;H
+13;Vasco;Botafogo RJ;0;2;A
+13;Bahia;Atletico-MG;2;1;H
+13;Corinthians;Bragantino;1;2;A
+13;Cruzeiro;Gremio;4;1;H
+13;Fortaleza;Ceara;0;1;A
+13;Juventude;Sport Recife;2;0;H
+13;Santos;Palmeiras;0;0;D
+13;Mirassol;Fluminense;0;0;D
+14;Palmeiras;Mirassol;1;1;D
+14;Ceara;Corinthians;0;1;A
+14;Santos;Flamengo RJ;1;0;H
+14;Botafogo RJ;Vitoria;0;0;D
+14;Bragantino;Sao Paulo;2;2;D
+14;Fluminense;Cruzeiro;0;2;A
+14;Gremio;Fortaleza;2;1;H
+14;Juventude;Vasco;2;0;H
+14;Atletico-MG;Sport Recife;0;0;D
+14;Bahia;Internacional;0;0;D
+15;Fortaleza;Bahia;1;1;D
+15;Vasco;Gremio;1;1;D
+15;Mirassol;Santos;3;0;H
+15;Sao Paulo;Corinthians;2;0;H
+15;Internacional;Ceara;1;0;H
+15;Cruzeiro;Juventude;4;0;H
+15;Vitoria;Bragantino;1;0;H
+15;Palmeiras;Atletico-MG;3;2;H
+15;Sport Recife;Botafogo RJ;0;1;A
+15;Flamengo RJ;Fluminense;1;0;H
+16;Ceara;Mirassol;0;2;A
+16;Fluminense;Palmeiras;1;2;A
+16;Corinthians;Cruzeiro;0;0;D
+16;Bragantino;Flamengo RJ;1;2;A
+16;Santos;Internacional;1;2;A
+16;Vitoria;Sport Recife;2;2;D
+16;Juventude;Sao Paulo;0;1;A
+16;Vasco;Bahia;3;1;H
+16;Gremio;Botafogo RJ;1;1;D
+16;Atletico-MG;Fortaleza;0;0;D
+17;Botafogo RJ;Corinthians;1;1;D
+17;Fortaleza;Bragantino;3;1;H
+17;Mirassol;Vitoria;1;1;D
+17;Sport Recife;Santos;2;2;D
+17;Palmeiras;Gremio;1;0;H
+17;Cruzeiro;Ceara;1;2;A
+17;Sao Paulo;Fluminense;3;1;H
+17;Bahia;Juventude;3;0;H
+17;Internacional;Vasco;1;1;D
+17;Flamengo RJ;Atletico-MG;1;0;H
+18;Sport Recife;Bahia;0;0;D
+18;Mirassol;Vasco;3;2;H
+18;Fluminense;Gremio;1;0;H
+18;Botafogo RJ;Cruzeiro;0;2;A
+18;Corinthians;Fortaleza;1;1;D
+18;Atletico-MG;Bragantino;2;1;H
+18;Ceara;Flamengo RJ;1;1;D
+18;Vitoria;Palmeiras;2;2;D
+18;Internacional;Sao Paulo;1;2;A
+18;Santos;Juventude;3;1;H
+19;Bragantino;Internacional;1;3;A
+19;Flamengo RJ;Mirassol;2;1;H
+19;Sao Paulo;Vitoria;2;0;H
+19;Fortaleza;Botafogo RJ;0;5;A
+19;Bahia;Fluminense;3;3;D
+19;Palmeiras;Ceara;2;1;H
+19;Vasco;Atletico-MG;1;1;D
+19;Cruzeiro;Santos;1;2;A
+19;Gremio;Sport Recife;0;1;A
+19;Juventude;Corinthians;2;1;H
+20;Ceara;Bragantino;1;0;H
+20;Fluminense;Fortaleza;2;1;H
+20;Sport Recife;Sao Paulo;2;2;D
+20;Vitoria;Juventude;2;2;D
+20;Corinthians;Bahia;1;2;A
+20;Atletico-MG;Gremio;1;3;A
+20;Santos;Vasco;0;6;A
+20;Internacional;Flamengo RJ;1;3;A
+20;Botafogo RJ;Palmeiras;0;1;A
+20;Mirassol;Cruzeiro;1;1;D
+21;Bragantino;Fluminense;4;2;H
+21;Cruzeiro;Internacional;2;1;H
+21;Gremio;Ceara;0;0;D
+21;Bahia;Santos;2;0;H
+21;Vasco;Corinthians;2;3;A
+21;Fortaleza;Mirassol;0;1;A
+21;Juventude;Botafogo RJ;1;3;A
+21;Sao Paulo;Atletico-MG;2;0;H
+21;Palmeiras;Sport Recife;3;0;H
+21;Flamengo RJ;Vitoria;8;0;H
+22;Ceara;Juventude;0;1;A
+22;Botafogo RJ;Bragantino;4;1;H
+22;Cruzeiro;Sao Paulo;1;0;H
+22;Flamengo RJ;Gremio;1;1;D
+22;Santos;Fluminense;0;0;D
+22;Corinthians;Palmeiras;1;1;D
+22;Mirassol;Bahia;5;1;H
+22;Vitoria;Atletico-MG;1;0;H
+22;Internacional;Fortaleza;2;1;H
+22;Sport Recife;Vasco;2;3;A
+23;Fortaleza;Vitoria;2;0;H
+23;Gremio;Mirassol;0;1;A
+23;Palmeiras;Internacional;4;1;H
+23;Fluminense;Corinthians;0;1;A
+23;Bragantino;Sport Recife;1;1;D
+23;Atletico-MG;Santos;1;1;D
+23;Juventude;Flamengo RJ;0;2;A
+23;Sao Paulo;Botafogo RJ;1;0;H
+23;Vasco;Ceara;2;2;D
+23;Bahia;Cruzeiro;1;2;A
+24;Vitoria;Fluminense;0;1;A
+24;Botafogo RJ;Atletico-MG;1;0;H
+24;Ceara;Bahia;1;1;D
+24;Palmeiras;Fortaleza;4;1;H
+24;Mirassol;Juventude;2;0;H
+24;Flamengo RJ;Vasco;1;1;D
+24;Internacional;Gremio;2;3;A
+24;Sport Recife;Corinthians;1;0;H
+24;Cruzeiro;Bragantino;2;1;H
+24;Santos;Sao Paulo;1;0;H
+25;Fortaleza;Sport Recife;1;0;H
+25;Juventude;Internacional;1;1;D
+25;Vasco;Cruzeiro;2;0;H
+25;Atletico-MG;Mirassol;1;0;H
+25;Gremio;Vitoria;3;1;H
+25;Bahia;Palmeiras;1;0;H
+25;Fluminense;Botafogo RJ;2;0;H
+25;Bragantino;Santos;2;2;D
+25;Corinthians;Flamengo RJ;1;2;A
+25;Sao Paulo;Ceara;0;1;A
+26;Atletico-MG;Juventude;0;0;D
+26;Mirassol;Bragantino;1;1;D
+26;Palmeiras;Vasco;3;0;H
+26;Sport Recife;Fluminense;2;2;D
+26;Internacional;Corinthians;1;1;D
+26;Botafogo RJ;Bahia;2;1;H
+26;Santos;Gremio;1;1;D
+26;Vitoria;Ceara;1;0;H
+26;Fortaleza;Sao Paulo;0;2;A
+26;Flamengo RJ;Cruzeiro;0;0;D
+27;Fluminense;Atletico-MG;3;0;H
+27;Bragantino;Gremio;1;0;H
+27;Internacional;Botafogo RJ;2;0;H
+27;Corinthians;Mirassol;3;0;H
+27;Vasco;Vitoria;4;3;H
+27;Sao Paulo;Palmeiras;2;3;A
+27;Bahia;Flamengo RJ;1;0;H
+27;Juventude;Fortaleza;1;2;A
+27;Cruzeiro;Sport Recife;1;1;D
+27;Ceara;Santos;3;0;H
