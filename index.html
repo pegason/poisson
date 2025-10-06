@@ -48,7 +48,7 @@
         <!-- Seção explicativa do modelo (didática / sobre) -->
         <section id="model-explain" class="bg-white rounded-lg shadow-sm p-4 mb-6">
             <h2 class="text-lg font-semibold text-gray-800">Simulador Poisson — Campeonato Brasileiro 2025</h2>
-            <p class="text-sm text-gray-700 mt-2">Este projeto é uma página web estática que usa a Distribuição de Poisson para modelar e simular os resultados das partidas do Campeonato Brasileiro (versão didática para TCC). Ele carrega jogos reais e fixtures restantes a partir de arquivos CSV (<code>banco_jogos.csv</code> e <code>banco_restante.csv</code>) e executa simulações (Monte Carlo) para estimar probabilidades de campeão, vagas na Libertadores, Sul‑Americana e rebaixamento.</p>
+            <p class="text-sm text-gray-700 mt-2">Este projeto é uma página web estática que usa a Distribuição de Poisson para modelar e simular os resultados das partidas do Campeonato Brasileiro. Ele carrega jogos reais e fixtures restantes a partir de arquivos CSV (<code>banco_jogos.csv</code> e <code>banco_restante.csv</code>) e executa simulações (Monte Carlo) para estimar probabilidades de campeão, vagas na Libertadores, Sul‑Americana e rebaixamento.</p>
 
             <!-- Origem e vínculo acadêmico removidos por solicitação -->
 
@@ -97,12 +97,13 @@
             <div id="mc-controls" class="mb-4 hidden">
                 <div class="flex items-center justify-center gap-3">
                     <label class="text-sm text-gray-700">Simulações Monte Carlo:</label>
-                    <input id="mcCount" type="number" min="10" max="20000" value="500" class="w-24 px-2 py-1 border rounded">
+                    <input id="mcCount" type="number" min="10" max="20000" value="1000" class="w-24 px-2 py-1 border rounded">
                     <button id="mcRunBtn" class="px-3 py-1 bg-blue-600 text-white rounded" title="Rodar Monte Carlo (n = value)" tabindex="0">Rodar MC</button>
-                    <button id="mc500Btn" class="px-3 py-1 bg-blue-500 text-white rounded" title="Rodar Monte Carlo com 500 iterações" tabindex="0">MC 500 (final)</button>
+                    <button id="mc500Btn" class="px-3 py-1 bg-blue-500 text-white rounded" title="Rodar Monte Carlo com 1000 iterações" tabindex="0">MC 1000 (final)</button>
                     <button id="mcStopBtn" class="px-3 py-1 bg-gray-200 rounded hidden">Parar</button>
                 </div>
-                <div class="mt-2 text-center text-sm text-gray-600" id="mcProgress" role="status" aria-live="polite">Pronto</div>
+                <!-- Modo determinístico: padrão aplicado para rodadas 28-38 -->
+                <div class="mt-2 text-center text-sm text-gray-600" id="mcProgress" role="status" aria-live="polite"></div>
                 <div id="mcResults" class="mt-3 hidden"></div>
             </div>
             <div id="legend" class="text-center text-sm text-gray-600 mb-4 hidden">
@@ -338,9 +339,15 @@
                     const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
                     const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdv);
                     const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
-                    const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
-                    const gh = sc.golsMandante;
-                    const ga = sc.golsVisitante;
+                    let gh, ga;
+                    const deterministic = (r >= 28 && r <= 38);
+                    if (deterministic) {
+                        const top = getTopScorelines(lambdaH, lambdaA, 1)[0] || {h:0,a:0};
+                        gh = top.h; ga = top.a;
+                    } else {
+                        const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
+                        gh = sc.golsMandante; ga = sc.golsVisitante;
+                    }
                     const res = gh>ga ? 'H' : (gh<ga ? 'A' : 'D');
                     simulated.push({ round: r, mandante: m.mandante, visitante: m.visitante, golsMandante: gh, golsVisitante: ga, resultado: res, played: true, simulated: true });
                 });
@@ -745,8 +752,9 @@
                     template.forEach(m => {
                         const home = teamMetrics[m.mandante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
                         const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
-                            const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdvGlobal);
+                        const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdvGlobal);
                         const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
+                        // Monte Carlo deve ser probabilístico: sempre amostrar de acordo com a distribuição conjunta
                         const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
                         const gh = sc.golsMandante;
                         const ga = sc.golsVisitante;
@@ -829,6 +837,8 @@
                 mcResults.appendChild(table);
                 mcResults.classList.remove('hidden');
                 mcProgress.textContent = `Concluído ${stopped? '(parado prematuramente)':''}`;
+                // Atualiza a tabela para que as mini‑barras (mcLatest) apareçam imediatamente
+                try { renderForRound(currentRound); } catch(e) { /* ignore */ }
             }
 
             mcRunBtn.addEventListener('click', ()=>{
@@ -836,7 +846,7 @@
                 runMonteCarlo(n);
             });
             const mc500Btn = document.getElementById('mc500Btn');
-            if (mc500Btn) mc500Btn.addEventListener('click', ()=>{ runMonteCarlo(500); });
+            if (mc500Btn) mc500Btn.addEventListener('click', ()=>{ runMonteCarlo(1000); });
             mcStopBtn.addEventListener('click', ()=>{ mcRunning = false; });
 
             init();
