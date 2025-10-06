@@ -45,34 +45,29 @@
             <p class="text-sm text-gray-500 mt-1">Feito por: <strong>José Marques da Fonseca Junior</strong> &nbsp;•&nbsp; Ano: 2025</p>
         </header>
 
-        <!-- Seção explicativa do modelo (didática) -->
+        <!-- Seção explicativa do modelo (didática / sobre) -->
         <section id="model-explain" class="bg-white rounded-lg shadow-sm p-4 mb-6">
-            <h2 class="text-lg font-semibold text-gray-800">Breve explicação do modelo</h2>
-            <p class="text-sm text-gray-700 mt-2">Este projeto usa a distribuição de Poisson para modelar o número de gols marcados por cada time em uma partida. Principais pressupostos e passos:</p>
-            <ul class="list-disc list-inside text-sm text-gray-700 mt-2 space-y-1">
-                <li>Assume-se que gols marcados por cada equipe em um jogo seguem uma Poisson(\(\lambda\)) independente.</li>
-                <li>O parâmetro \(\lambda\) para cada equipe é estimado a partir de médias empíricas: média de gols marcados (ataque) e média de gols sofridos (defesa) por jogo, ajustadas pela média da liga e um fator de vantagem de jogar em casa.</li>
-                <li>Probabilidades de resultado (vitória mandante, empate, vitória visitante) são obtidas a partir do produto das PMFs de Poisson (somando sobre possíveis placares).</li>
-                <li>Para previsões de campeonato usamos simulação de Monte Carlo: repetimos sorteios das partidas restantes e agregamos posições para estimar probabilidades (Top-4, Top-6, rebaixamento, posição média).</li>
+            <h2 class="text-lg font-semibold text-gray-800">Simulador Poisson — Campeonato Brasileiro 2025</h2>
+            <p class="text-sm text-gray-700 mt-2">Este projeto é uma página web estática que usa a Distribuição de Poisson para modelar e simular os resultados das partidas do Campeonato Brasileiro (versão didática para TCC). Ele carrega jogos reais e fixtures restantes a partir de arquivos CSV (<code>banco_jogos.csv</code> e <code>banco_restante.csv</code>) e executa simulações (Monte Carlo) para estimar probabilidades de campeão, vagas na Libertadores, Sul‑Americana e rebaixamento.</p>
+
+            <!-- Origem e vínculo acadêmico removidos por solicitação -->
+
+            <h3 class="text-sm font-semibold text-gray-800 mt-4">Linguagens e tecnologias</h3>
+            <ul class="list-disc list-inside text-sm text-gray-700 mt-2">
+                <li>HTML, CSS e JavaScript (front-end puro, sem frameworks de build).</li>
+                <li>Tailwind CSS (via CDN) para utilitários de estilo.</li>
             </ul>
-            <div class="mt-3 text-center">
-                <div class="inline-block bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-3">
+
+            <div class="mt-4 text-center">
+                <div class="inline-block bg-indigo-50 border border-indigo-100 rounded-lg px-6 py-4">
                     <div class="text-sm text-indigo-700 font-semibold">Aplicação da Distribuição de Poisson</div>
-                    <div class="mt-2 text-lg text-gray-800 font-mono">\[P(X=k)=\dfrac{\lambda^{k} e^{-\lambda}}{k!},\quad k=0,1,2,\dots\]</div>
+                    <div class="mt-3">
+                        <img src="./poisson.png" alt="Fórmula da distribuição de Poisson: P(X = k) = λ^k e^{-λ} / k!" style="max-width:420px;width:100%;height:auto;display:block;margin:0 auto;" />
+                    </div>
                 </div>
             </div>
-            <div class="mt-2 text-sm text-gray-600">
-                Pontos fortes do modelo: simples, interpretável, excelente para material didático; limitações: não captura dependências entre gols das duas equipes (bivariância), ou efeitos temporais/lesões. Para usos avançados podem-se empregar modelos bivariados ou regressões (GLM).
-            </div>
-            <div class="mt-3 text-sm text-gray-700">
-                <h3 class="font-semibold">Evidências de robustez e métricas</h3>
-                <ul class="list-disc list-inside mt-1 text-sm text-gray-700">
-                    <li>Log-verossimilhança: permite comparar ajustes alternativos (por exemplo modelo Poisson vs. NegBin).</li>
-                    <li>Qui-quadrado de Pearson / Deviance: avalia discrepâncias entre observados e esperados por contagem de gols.</li>
-                    <li>Validação por bootstrap e Monte Carlo: intervalos de confiança empíricos para probabilidades de classificação.</li>
-                    <li>Métricas práticas: acurácia de previsão de resultado (H/D/A) e calibração das probabilidades (calibration plot).</li>
-                </ul>
-            </div>
+
+            <!-- Seção de pontos fortes e métricas removida por solicitação -->
         </section>
 
         <!-- Container para a tabela -->
@@ -411,20 +406,15 @@
                             lambdaA = Math.max(0.05, Math.min(lambdaA, 6));
                             const probs = matchOutcomeProbs(lambdaH, lambdaA);
 
-                            // list top scorelines (h x a) with probability — mostrar top-4 em lista vertical com tooltips
-                            const topScores = getTopScorelines(lambdaH, lambdaA, 4);
-                            const topHtml = `<ul class="text-xs text-gray-600 mt-1 space-y-1" role="list" aria-label="Principais placares prováveis">` + topScores.map(s => {
-                                const pct = (s.p*100).toFixed(1);
-                                return `<li role="listitem" class="flex items-center justify-between"><span class="font-medium">${s.h} x ${s.a}</span><span title="Probabilidade ${pct}%" aria-label="Probabilidade ${pct} por cento" class="text-gray-500">${pct}%</span></li>`;
-                            }).join('') + `</ul>`;
+                            // Apenas exibe o placar (se real/simulado) e as probabilidades aggregate: P(home), P(draw), P(away)
                             if (mt.source === 'real') {
-                                right.innerHTML = `<span class="text-sm text-gray-700">${mt.golsMandante} x ${mt.golsVisitante}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
+                                right.innerHTML = `<span class="text-sm text-gray-700">${mt.golsMandante} x ${mt.golsVisitante}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
                             } else if (mt.source === 'simulated') {
-                                right.innerHTML = `<span class="text-sm text-yellow-600">${mt.golsMandante} x ${mt.golsVisitante} <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-yellow-200 text-yellow-800 rounded">Simulação</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
+                                right.innerHTML = `<span class="text-sm text-yellow-600">${mt.golsMandante} x ${mt.golsVisitante} <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-yellow-200 text-yellow-800 rounded">Simulação</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
                             } else if (mt.source === 'pending') {
-                                right.innerHTML = `<span class="text-sm text-gray-400">-- x -- <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">Pendente</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
+                                right.innerHTML = `<span class="text-sm text-gray-400">-- x -- <span class="ml-2 inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">Pendente</span></span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
                             } else {
-                                right.innerHTML = `<span class="text-sm">${mt.golsMandante ?? '--'} x ${mt.golsVisitante ?? '--'}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>` + topHtml;
+                                right.innerHTML = `<span class="text-sm">${mt.golsMandante ?? '--'} x ${mt.golsVisitante ?? '--'}</span> <div class="text-xs text-gray-500">P(home) ${(probs.home*100).toFixed(1)}% • P(draw) ${(probs.draw*100).toFixed(1)}% • P(away) ${(probs.away*100).toFixed(1)}%</div>`;
                             }
                         li.appendChild(left); li.appendChild(right); ul.appendChild(li);
                     });
