@@ -309,23 +309,56 @@
                 return Math.round(ratio * 1000) / 1000;
             }
 
+            // Calcula métricas separadas por casa/fora até uma rodada (inclusive simulatedByRound)
+            function computeHomeAwayMetricsUpToRound(targetRound) {
+                const all = [];
+                // played matches
+                playedMatches.forEach(m => { if (m.round && m.round <= targetRound && m.played) all.push(m); });
+                // simulated matches
+                for (let r = 1; r <= targetRound; r++) {
+                    if (simulatedByRound[r]) simulatedByRound[r].forEach(m => all.push(m));
+                }
+
+                const teams = {};
+                let totalHomeGoals = 0, totalAwayGoals = 0, totalHomeMatches = 0;
+                all.forEach(m => {
+                    if (!m || m.golsMandante == null || m.golsVisitante == null) return;
+                    const home = String(m.mandante), away = String(m.visitante);
+                    if (!teams[home]) teams[home] = { homeGames:0, homeGF:0, homeGA:0, awayGames:0, awayGF:0, awayGA:0 };
+                    if (!teams[away]) teams[away] = { homeGames:0, homeGF:0, homeGA:0, awayGames:0, awayGF:0, awayGA:0 };
+                    teams[home].homeGames += 1; teams[home].homeGF += Number(m.golsMandante); teams[home].homeGA += Number(m.golsVisitante);
+                    teams[away].awayGames += 1; teams[away].awayGF += Number(m.golsVisitante); teams[away].awayGA += Number(m.golsMandante);
+                    totalHomeGoals += Number(m.golsMandante); totalAwayGoals += Number(m.golsVisitante); totalHomeMatches += 1;
+                });
+
+                const leagueAvgHomeAttack = totalHomeMatches > 0 ? totalHomeGoals / totalHomeMatches : 1.2;
+                const leagueAvgAwayAttack = totalHomeMatches > 0 ? totalAwayGoals / totalHomeMatches : 1.2;
+                // defenses: average conceded at home = average away goals, and vice-versa
+                const leagueAvgHomeDefense = leagueAvgAwayAttack;
+                const leagueAvgAwayDefense = leagueAvgHomeAttack;
+
+                const teamMetrics = {};
+                Object.keys(teams).forEach(t => {
+                    const d = teams[t];
+                    const homeAttack = d.homeGames > 0 ? d.homeGF / d.homeGames : leagueAvgHomeAttack;
+                    const homeDefense = d.homeGames > 0 ? d.homeGA / d.homeGames : leagueAvgHomeDefense;
+                    const awayAttack = d.awayGames > 0 ? d.awayGF / d.awayGames : leagueAvgAwayAttack;
+                    const awayDefense = d.awayGames > 0 ? d.awayGA / d.awayGames : leagueAvgAwayDefense;
+                    teamMetrics[t] = { homeAttack, homeDefense, awayAttack, awayDefense, homeGames: d.homeGames, awayGames: d.awayGames };
+                });
+
+                return { teamMetrics, leagueAvgHomeAttack, leagueAvgAwayAttack, leagueAvgHomeDefense, leagueAvgAwayDefense };
+            }
+
             // Simula uma rodada completa usando estatísticas até a rodada anterior
             function simulateRound(r) {
                 // check template matches for this round
                 const template = remainingTemplate.filter(m => m.round === r);
                 if (!template.length) return [];
                 const statsBefore = calcStatsUpToRound(r-1);
-                // compute league averages
-                let totalGP=0,totalGC=0,totalJ=0;
-                Object.values(statsBefore).forEach(t=>{ totalGP+=t.GP; totalGC+=t.GC; totalJ+=t.J; });
-                const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
-                const leagueAvgGA = totalJ>0 ? totalGC/totalJ : 1.2;
-
-                const teamMetrics = {};
-                Object.values(statsBefore).forEach(t => {
-                    teamMetrics[t.time] = { avgGF: t.J>0 ? t.GP/t.J : leagueAvgGF, avgGA: t.J>0 ? t.GC/t.J : leagueAvgGA };
-                });
-
+                // compute home/away metrics up to previous round
+                const ha = computeHomeAwayMetricsUpToRound(r-1);
+                const teamMetricsHA = ha.teamMetrics;
                 const homeAdv = homeAdvGlobal;
                 const simulated = [];
                 template.forEach(m => {
@@ -335,15 +368,32 @@
                         simulated.push(Object.assign({}, m, { played:true }));
                         return;
                     }
-                    const home = teamMetrics[m.mandante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
-                    const away = teamMetrics[m.visitante] || { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
-                    const lambdaH = Math.max(0.05, home.avgGF * (away.avgGA / leagueAvgGA) * homeAdv);
-                    const lambdaA = Math.max(0.05, away.avgGF * (home.avgGA / leagueAvgGA));
+                    const homeHA = teamMetricsHA[m.mandante] || {};
+                    const awayHA = teamMetricsHA[m.visitante] || {};
+                    const homeAttack = homeHA.homeAttack ?? ha.leagueAvgHomeAttack;
+                    const homeDefense = homeHA.homeDefense ?? ha.leagueAvgHomeDefense;
+                    const awayAttack = awayHA.awayAttack ?? ha.leagueAvgAwayAttack;
+                    const awayDefense = awayHA.awayDefense ?? ha.leagueAvgAwayDefense;
+                    let lambdaH = Math.max(0.05, homeAttack * (awayDefense / Math.max(0.01, ha.leagueAvgAwayDefense)) * homeAdv);
+                    let lambdaA = Math.max(0.05, awayAttack * (homeDefense / Math.max(0.01, ha.leagueAvgHomeDefense)));
+                    // estabilidade: cap nas lambdas para evitar placares extremos
+                    lambdaH = Math.min(lambdaH, 6);
+                    lambdaA = Math.min(lambdaA, 6);
                     let gh, ga;
                     const deterministic = (r >= 28 && r <= 38);
                     if (deterministic) {
-                        const top = getTopScorelines(lambdaH, lambdaA, 1)[0] || {h:0,a:0};
-                        gh = top.h; ga = top.a;
+                        // Escolhe a classe (mandante/empate/visitante) mais provável
+                        // e, dentro dessa classe, escolhe o placar individual mais provável.
+                        const outcomeProbs = matchOutcomeProbs(lambdaH, lambdaA);
+                        let preferred = 'draw';
+                        if (outcomeProbs.home >= outcomeProbs.draw && outcomeProbs.home >= outcomeProbs.away) preferred = 'home';
+                        else if (outcomeProbs.away >= outcomeProbs.home && outcomeProbs.away >= outcomeProbs.draw) preferred = 'away';
+
+                        // pega as top scorelines e seleciona a primeira que bate com a classe preferida
+                        const topList = getTopScorelines(lambdaH, lambdaA, 40);
+                        let chosen = topList.find(s => (preferred === 'home' && s.h > s.a) || (preferred === 'away' && s.h < s.a) || (preferred === 'draw' && s.h === s.a));
+                        if (!chosen) chosen = topList[0] || {h:0,a:0};
+                        gh = chosen.h; ga = chosen.a;
                     } else {
                         const sc = sampleScorelineFromJoint(lambdaH, lambdaA);
                         gh = sc.golsMandante; ga = sc.golsVisitante;
@@ -397,18 +447,17 @@
                             const right = document.createElement('div');
                             right.className = 'right';
 
-                            // compute probs for this match based on stats up to r-1
-                            const statsBefore = calcStatsUpToRound(r-1);
-                            const totalGP = Object.values(statsBefore).reduce((s,t)=>s+(t.GP||0),0);
-                            const totalGC = Object.values(statsBefore).reduce((s,t)=>s+(t.GC||0),0);
-                            const totalJ = Object.values(statsBefore).reduce((s,t)=>s+(t.J||0),0);
-                            const leagueAvgGF = totalJ>0 ? totalGP/totalJ : 1.2;
-                            const leagueAvgGA = totalJ>0 ? totalGC/totalJ : 1.2;
-                            const homeMetrics = statsBefore[mt.mandante] ? { avgGF: statsBefore[mt.mandante].GP / Math.max(1, statsBefore[mt.mandante].J), avgGA: statsBefore[mt.mandante].GC / Math.max(1, statsBefore[mt.mandante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
-                            const awayMetrics = statsBefore[mt.visitante] ? { avgGF: statsBefore[mt.visitante].GP / Math.max(1, statsBefore[mt.visitante].J), avgGA: statsBefore[mt.visitante].GC / Math.max(1, statsBefore[mt.visitante].J) } : { avgGF: leagueAvgGF, avgGA: leagueAvgGA };
-                            let lambdaH = homeMetrics.avgGF * (awayMetrics.avgGA / Math.max(0.1, leagueAvgGA)) * homeAdvGlobal;
-                            let lambdaA = awayMetrics.avgGF * (homeMetrics.avgGA / Math.max(0.1, leagueAvgGA));
-                            // estabilidade: cap nas lambdas para evitar placares extremos
+                            // compute probs for this match based on stats up to r-1 using home/away metrics
+                            const ha = computeHomeAwayMetricsUpToRound(r-1);
+                            const teamMetricsHA = ha.teamMetrics;
+                            const homeHA = teamMetricsHA[mt.mandante] || {};
+                            const awayHA = teamMetricsHA[mt.visitante] || {};
+                            const homeAttack = homeHA.homeAttack ?? ha.leagueAvgHomeAttack;
+                            const homeDefense = homeHA.homeDefense ?? ha.leagueAvgHomeDefense;
+                            const awayAttack = awayHA.awayAttack ?? ha.leagueAvgAwayAttack;
+                            const awayDefense = awayHA.awayDefense ?? ha.leagueAvgAwayDefense;
+                            let lambdaH = homeAttack * (awayDefense / Math.max(0.01, ha.leagueAvgAwayDefense)) * homeAdvGlobal;
+                            let lambdaA = awayAttack * (homeDefense / Math.max(0.01, ha.leagueAvgHomeDefense));
                             lambdaH = Math.max(0.05, Math.min(lambdaH, 6));
                             lambdaA = Math.max(0.05, Math.min(lambdaA, 6));
                             const probs = matchOutcomeProbs(lambdaH, lambdaA);
@@ -551,7 +600,7 @@
                 return html;
             }
 
-            // calcula probabilidades de resultado (home, draw, away) aproximando somatórios até Kmax
+            // calcula probabilidades de resultado (home, draw, away) via soma dupla sobre a distribuição conjunta
             function matchOutcomeProbs(lambdaH, lambdaA) {
                 const maxMean = Math.max(lambdaH, lambdaA);
                 const K = Math.max(10, Math.ceil(maxMean + 6 * Math.sqrt(Math.max(1, maxMean))));
@@ -563,23 +612,16 @@
                 const remA = 1 - pA.reduce((s,x)=>s+x,0); if (remA>0) pA[K] += remA;
 
                 let probHome = 0, probDraw = 0, probAway = 0;
-                // home win probability
-                let cdfA = 0;
-                // precompute cumulative of A
-                const cdfAarr = new Array(K+1).fill(0);
-                cdfAarr[0] = pA[0];
-                for (let j=1;j<=K;j++) cdfAarr[j] = cdfAarr[j-1] + pA[j];
-                for (let i=0;i<=K;i++) {
-                    const ph = pH[i];
-                    const paLess = i-1 >= 0 ? cdfAarr[i-1] : 0;
-                    probHome += ph * paLess;
-                    probDraw += ph * pA[i];
+                for (let i = 0; i <= K; i++) {
+                    for (let j = 0; j <= K; j++) {
+                        const p = pH[i] * pA[j];
+                        if (i > j) probHome += p;
+                        else if (i === j) probDraw += p;
+                        else probAway += p;
+                    }
                 }
-                probAway = 1 - probHome - probDraw;
-                if (probAway < 0) probAway = 0;
-                // normalize
                 const total = probHome + probDraw + probAway;
-                if (total > 0) { probHome/=total; probDraw/=total; probAway/=total; }
+                if (total > 0) { probHome /= total; probDraw /= total; probAway /= total; }
                 return { home: probHome, draw: probDraw, away: probAway };
             }
 
